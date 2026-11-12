@@ -1,0 +1,270 @@
+{
+  "schema_version": 1,
+  "reference_id": "workload-feature-expert-reference.v7",
+  "source_kind": "expert_assumption",
+  "description": "在 v1 演示参考的基础上，提高复用次数和并发计数的专家中心；没有进行历史 workload 均值统计。",
+  "historical_sample_count": 0,
+  "historical_source_paths": [],
+  "comparison_formula": "(current_value - reference_mean) / reference_mean",
+  "reference_scope": "大批量 SQL/LLM workload 的固定专家参考；不是通用历史均值，不随每次当前 workload 自动调整。",
+  "excluded_from_directional_scoring": [
+    "arrival_mode",
+    "request_rate",
+    "gpu_utilization_mean",
+    "gpu_utilization_p90",
+    "hbm_usage_mean",
+    "hbm_usage_p90",
+    "mean_ttft_ms",
+    "ttft_p95_ms",
+    "tpot_p50_ms",
+    "tpot_p95_ms",
+    "mean_e2e_latency_ms"
+  ],
+  "features": {
+    "prefix_reuse_ratio": {
+      "reference_mean": 0.3,
+      "unit": "ratio",
+      "description": "前缀复用比例"
+    },
+    "shared_prefix_len_p50": {
+      "reference_mean": 128,
+      "unit": "tokens",
+      "description": "共享前缀长度 p50"
+    },
+    "shared_prefix_len_p90": {
+      "reference_mean": 256,
+      "unit": "tokens",
+      "description": "共享前缀长度 p90"
+    },
+    "prefix_cache_hit_rate": {
+      "reference_mean": 0.3,
+      "unit": "ratio",
+      "description": "前缀缓存命中率"
+    },
+    "prompt_tokens_per_request": {
+      "reference_mean": 1024,
+      "unit": "tokens/request",
+      "description": "平均输入 token 数"
+    },
+    "template_reuse_max_count": {
+      "reference_mean": 4096,
+      "unit": "requests",
+      "description": "单模板最大复用次数"
+    },
+    "data_prompt_len_p50": {
+      "reference_mean": 512,
+      "unit": "tokens",
+      "description": "数据输入长度 p50"
+    },
+    "data_prompt_len_p95": {
+      "reference_mean": 1024,
+      "unit": "tokens",
+      "description": "数据输入长度 p95"
+    },
+    "system_prompt_len_p95": {
+      "reference_mean": 256,
+      "unit": "tokens",
+      "description": "系统/模板输入长度 p95"
+    },
+    "output_len_p50": {
+      "reference_mean": 32,
+      "unit": "tokens",
+      "description": "输出长度 p50"
+    },
+    "output_len_p95": {
+      "reference_mean": 128,
+      "unit": "tokens",
+      "description": "输出长度 p95"
+    },
+    "actual_global_in_flight_peak": {
+      "reference_mean": 1024,
+      "unit": "requests",
+      "description": "实际并发峰值"
+    },
+    "actual_batch_size_mean": {
+      "reference_mean": 128,
+      "unit": "running_requests",
+      "description": "实际运行请求数均值"
+    },
+    "actual_batch_size_p95": {
+      "reference_mean": 256,
+      "unit": "running_requests",
+      "description": "实际运行请求数 p95"
+    },
+    "theoretical_global_in_flight_upper": {
+      "reference_mean": 1024,
+      "unit": "requests",
+      "description": "理论并发上限"
+    },
+    "kv_cache_usage_mean": {
+      "reference_mean": 0.3,
+      "unit": "ratio",
+      "description": "KV 使用率均值"
+    },
+    "kv_cache_usage_p90": {
+      "reference_mean": 0.5,
+      "unit": "ratio",
+      "description": "KV 使用率 p90"
+    },
+    "generation_tokens_per_request": {
+      "reference_mean": 64,
+      "unit": "tokens/request",
+      "description": "平均输出 token 数"
+    },
+    "input_output_ratio": {
+      "reference_mean": 16,
+      "unit": "ratio",
+      "description": "输入输出 token 比例"
+    },
+    "cacheblend_reuse_ratio": {
+      "reference_mean": 0.5,
+      "unit": "ratio",
+      "description": "CacheBlend 片段复用比例"
+    },
+    "shared_cacheblend_len_p50": {
+      "reference_mean": 512,
+      "unit": "tokens",
+      "description": "可复用片段长度 p50"
+    },
+    "shared_cacheblend_len_p90": {
+      "reference_mean": 1024,
+      "unit": "tokens",
+      "description": "可复用片段长度 p90"
+    },
+    "lmcache_cache_hit_rate": {
+      "reference_mean": 0.5,
+      "unit": "ratio",
+      "description": "LMCache 命中率"
+    },
+    "rag_retrieved_chunk_count_distribution.p50": {
+      "reference_mean": 2,
+      "unit": "chunks/request",
+      "description": "检索片段数 p50"
+    },
+    "rag_retrieved_chunk_count_distribution.p90": {
+      "reference_mean": 4,
+      "unit": "chunks/request",
+      "description": "检索片段数 p90"
+    },
+    "static.variants.on.duplicate_segment_payload_fraction": {
+      "reference_mean": 0.5,
+      "unit": "ratio",
+      "description": "已有离线静态统计：CacheBlend-on 输入片段 payload 中首次出现之后的重复 token 比例；独立于运行画像 cacheblend_reuse_ratio。",
+      "observation_source_kind": "offline_workload_static_feature"
+    },
+    "static.variants.off.ideal_prefix_duplicate_fraction": {
+      "reference_mean": 0.3,
+      "unit": "ratio",
+      "description": "已有离线静态统计：CacheBlend-off 输入在理想 token trie 共享下可省去的重复前缀 token 占全部输入 token 的比例；独立于按 query/function 分组的运行画像 prefix_reuse_ratio。",
+      "observation_source_kind": "offline_workload_static_feature"
+    }
+  },
+  "scoring": {
+    "feature_formula": "direction * (current_value - reference_mean) / reference_mean",
+    "mechanism_formula": "arithmetic_mean(valid_signed_deviations)",
+    "missing_feature_policy": "exclude_from_numerator_and_denominator; report coverage",
+    "empty_feature_policy": "final score=0 for mechanisms without valid directional signals; raw_score=null",
+    "weighting": "equal_per_feature; no clipping or thresholds",
+    "interpretation": "专家方向先验的相对信号均分，不是实测加速比或概率；条件性方向仍受原设计中成立条件限制。",
+    "imputation_policy": "no cross-mechanism imputation; missing mechanism signal uses zero"
+  },
+  "mechanisms": {
+    "enable_prefix_caching": {
+      "feature_directions": {
+        "prefix_reuse_ratio": 1,
+        "prefix_cache_hit_rate": 1,
+        "template_reuse_max_count": 1
+      },
+      "note": "仅对前缀复用比例、实测命中率和模板最大复用次数取平均；不使用 prompt_tokens_per_request、shared_prefix_len_p50/p90 或静态理想前缀比例。"
+    },
+    "chunked_prefill": {
+      "feature_directions": {
+        "data_prompt_len_p95": 1,
+        "system_prompt_len_p95": 1,
+        "output_len_p50": 1,
+        "output_len_p95": 1,
+        "actual_global_in_flight_peak": 1,
+        "actual_batch_size_mean": 1
+      }
+    },
+    "quantization": {
+      "feature_directions": {
+        "kv_cache_usage_mean": 1,
+        "kv_cache_usage_p90": 1,
+        "theoretical_global_in_flight_upper": 1,
+        "generation_tokens_per_request": 1
+      },
+      "note": "建模层归并为 none/on，关注容量及多步 decode 的条件性机会；batch 大小因收益路径方向冲突不纳入整体均分。on 的实际量化方法沿用合法配置映射。",
+      "choices": [
+        "none",
+        "on"
+      ],
+      "positive_option": "on",
+      "negative_option": "none"
+    },
+    "dtype": {
+      "choices": [
+        "bfloat16",
+        "half"
+      ],
+      "feature_directions": {},
+      "note": "计算 dtype 保持既有 BF16/FP16 域；未定义 workload 的确定方向，原始分数为空，最终分数直接置零。"
+    },
+    "kv_cache_dtype": {
+      "feature_directions": {
+        "prompt_tokens_per_request": 1,
+        "data_prompt_len_p50": 1,
+        "data_prompt_len_p95": 1,
+        "output_len_p50": 1,
+        "output_len_p95": 1,
+        "actual_global_in_flight_peak": 1,
+        "actual_batch_size_mean": 1,
+        "kv_cache_usage_mean": 1,
+        "kv_cache_usage_p90": 1
+      },
+      "note": "信号建模层将 KV 位宽归并为 16bit/8bit；正分支持 8bit，负分支持 16bit。具体 KV 格式继续由合法配置映射。",
+      "choices": [
+        "16bit",
+        "8bit"
+      ],
+      "positive_option": "8bit",
+      "negative_option": "16bit"
+    },
+    "cacheblend_mode": {
+      "feature_directions": {
+        "cacheblend_reuse_ratio": 1,
+        "shared_cacheblend_len_p50": 1,
+        "shared_cacheblend_len_p90": 1,
+        "prompt_tokens_per_request": 1,
+        "lmcache_cache_hit_rate": 1,
+        "prefix_reuse_ratio": -1,
+        "prefix_cache_hit_rate": -1,
+        "actual_global_in_flight_peak": -1,
+        "actual_batch_size_mean": -1,
+        "static.variants.on.duplicate_segment_payload_fraction": 1
+      },
+      "note": "负向前缀信号针对当前 CacheBlend 需关闭 APC 的机制束；并发负向沿用当前实现的竞争路径假设。"
+    },
+    "speculative_method": {
+      "feature_directions": {
+        "generation_tokens_per_request": 1,
+        "output_len_p50": 1,
+        "output_len_p95": 1,
+        "input_output_ratio": -1,
+        "actual_batch_size_mean": -1
+      },
+      "note": "针对当前 n-gram，方向均为机会/资源条件先验，不推断接受率；按用户要求不再使用 kv_cache_usage_p90 计分。"
+    }
+  },
+  "revision": {
+    "previous_reference_id": "workload-feature-expert-reference.v6",
+    "reason": "从 n-gram 评分中移除 kv_cache_usage_p90；其他机制规则及参考均值保持不变。",
+    "mechanism": "speculative_method",
+    "excluded_features": [
+      "kv_cache_usage_p90"
+    ],
+    "unchanged_existing_reference_means": true,
+    "unchanged_other_mechanism_rules": true,
+    "historical_mean_estimation_performed": false
+  }
+}

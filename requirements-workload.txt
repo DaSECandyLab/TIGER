@@ -1,0 +1,15 @@
+# Separate evaluation environment: its NumPy/SciPy versions differ from GPy's.
+duckdb==1.5.1
+pandas==2.3.3
+numpy==2.4.6
+scipy==1.17.1
+scikit-learn==1.8.0
+pyarrow==24.0.0
+requests==2.34.2
+gdown==6.0.0
+overrides==7.7.0
+jinja2==3.1.6
+python-dotenv==1.2.2
+tokenizers==0.22.2
+rouge-score==0.1.2
+cdlib==0.4.0

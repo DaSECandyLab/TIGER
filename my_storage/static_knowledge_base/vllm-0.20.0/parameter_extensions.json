@@ -1,0 +1,651 @@
+{
+  "schema_version": 1,
+  "extension_id": "scoot-inference-integrations",
+  "vllm_version": "0.20.0",
+  "updated_at": "2026-09-10",
+  "purpose": "Add deployed SCOOT/LMCache CacheBlend and speculative-decoding leaves that are hidden inside top-level vLLM compound configs, plus executable dependency metadata for official parameters.",
+  "parameter_overrides": [
+    {
+      "name": "dtype",
+      "source_kind": "official_parameter_with_scenario_safe_domain",
+      "tunability": "bounded_model_precision",
+      "search_domain": [
+        "bfloat16",
+        "half"
+      ]
+    },
+    {
+      "name": "model_impl",
+      "source_kind": "official_parameter_with_scenario_safe_domain",
+      "tunability": "bounded_implementation_selector",
+      "search_domain": [
+        "vllm",
+        "transformers"
+      ],
+      "validation_evidence": [
+        "vLLM 0.20.0 vllm/model_executor/models/registry.py:1120 and 1172 explicitly dispatch model_impl=transformers to the Transformers backend even when a native model implementation exists. Native support does not make the explicit Transformers selector unreachable.",
+        "Local Qwen2-7B-Instruct execution validated both vllm and transformers implementations. Native BO trial_0044 on 2026-09-05 used model_impl=transformers and exited successfully. This is executable capability evidence only, not workload performance evidence."
+      ]
+    },
+    {
+      "name": "enforce_eager",
+      "source_kind": "official_parameter_with_scenario_safe_domain",
+      "tunability": "bounded_execution_mode",
+      "search_domain": [
+        "False",
+        "True"
+      ]
+    },
+    {
+      "name": "disable_cascade_attn",
+      "source_kind": "official_parameter_with_source_supported_domain",
+      "tunability": "bounded_attention_path_gate",
+      "search_domain": [
+        "False",
+        "True"
+      ]
+    },
+    {
+      "name": "decode_context_parallel_size",
+      "source_kind": "official_parameter_with_topology_bounded_domain",
+      "tunability": "parent_gated_integer",
+      "parent_parameters": [
+        "tensor_parallel_size"
+      ],
+      "active_when": [
+        "tensor_parallel_size == 2"
+      ],
+      "search_domain": [
+        "1",
+        "2"
+      ]
+    },
+    {
+      "name": "cp_kv_cache_interleave_size",
+      "source_kind": "official_parameter_with_constraint_bounded_domain",
+      "tunability": "parent_gated_integer",
+      "parent_parameters": [
+        "decode_context_parallel_size"
+      ],
+      "active_when": [
+        "decode_context_parallel_size > 1"
+      ],
+      "search_domain": [
+        "1",
+        "16"
+      ],
+      "validation_evidence": [
+        "vllm-0.20.0/vllm/config/parallel.py:328-340 defines value 1 as token-level KV placement and value block_size as block-level placement; 1 and 16 therefore produce distinct effective KV layouts when DCP is active."
+      ]
+    },
+    {
+      "name": "data_parallel_backend",
+      "source_kind": "official_parameter_with_locally_available_backends",
+      "tunability": "parent_gated_categorical",
+      "parent_parameters": [
+        "data_parallel_size"
+      ],
+      "active_when": [
+        "data_parallel_size > 1"
+      ],
+      "search_domain": [
+        "mp",
+        "ray"
+      ],
+      "validation_evidence": [
+        "vllm-0.20.0/vllm/config/parallel.py:818-823 resolves data_parallel_backend=ray to the Ray distributed executor, while mp retains multiprocessing; vllm/v1/engine/utils.py:1039-1049 constructs a Ray CoreEngineActorManager for the Ray branch. The pinned environment has the Ray package installed."
+      ]
+    },
+    {
+      "name": "disable_nccl_for_dp_synchronization",
+      "source_kind": "official_parameter_with_source_supported_domain",
+      "tunability": "parent_gated_boolean",
+      "parent_parameters": [
+        "data_parallel_size"
+      ],
+      "active_when": [
+        "data_parallel_size > 1"
+      ],
+      "search_domain": [
+        "False",
+        "True"
+      ],
+      "validation_evidence": [
+        "vllm-0.20.0/vllm/v1/worker/dp_utils.py:18-33 keeps DP synchronization on the GPU device group when false and switches it to the CPU group when true; lines 43-51 execute the all-reduce on that selected group, establishing distinct NCCL/Gloo hot-path behavior for DP>1."
+      ]
+    },
+    {
+      "name": "block_size",
+      "source_kind": "official_parameter_with_cuda_backend_safe_domain",
+      "tunability": "bounded_cache_layout",
+      "search_domain": [
+        "16",
+        "32",
+        "64"
+      ]
+    },
+    {
+      "name": "kv_cache_dtype",
+      "source_kind": "official_parameter_with_measured_flash_attention_safe_domain",
+      "tunability": "bounded_cache_precision",
+      "search_domain": [
+        "bfloat16",
+        "float16",
+        "fp8_e4m3"
+      ],
+      "conflicts_or_overrides": [
+        "When the measured attention backend is FLASH_ATTN, explicit uncompressed float16 or bfloat16 KV storage must align with the effective model dtype because the kernel requires query and key tensors to share a dtype. This condition does not prohibit fp8_e4m3, which uses the quantized-KV conversion path."
+      ],
+      "validation_evidence": [
+        "vllm-0.20.0/vllm/v1/attention/backends/flash_attn.py:797 passes query and cached key tensors to flash_attn_varlen_func; the 2026-08-30 trial_0001 runtime with GPTQ/half + bfloat16 KV failed at this call with `RuntimeError: query and key must have the same dtype` after successful engine and KV-cache initialization.",
+        "The same workload's completed 50-round run contains quality-feasible fp8_e4m3 Trials, so the observed uncompressed dtype-alignment dependency must not be generalized to quantized FP8 KV storage."
+      ]
+    },
+    {
+      "name": "enable_prefix_caching",
+      "source_kind": "official_parameter_with_scenario_safe_domain",
+      "tunability": "bounded_feature_gate",
+      "search_domain": [
+        "False",
+        "True"
+      ]
+    },
+    {
+      "name": "max_num_batched_tokens",
+      "source_kind": "official_parameter_with_scenario_safe_domain",
+      "tunability": "bounded_scheduler_capacity",
+      "search_domain": [
+        "1024",
+        "2048",
+        "4096",
+        "8192"
+      ]
+    },
+    {
+      "name": "max_num_seqs",
+      "source_kind": "official_parameter_with_scenario_safe_domain",
+      "tunability": "bounded_scheduler_concurrency",
+      "search_domain": [
+        "16",
+        "32",
+        "64",
+        "128",
+        "256"
+      ]
+    },
+    {
+      "name": "scheduler_reserve_full_isl",
+      "source_kind": "official_parameter_with_source_supported_domain",
+      "tunability": "bounded_scheduler_policy",
+      "search_domain": [
+        "False",
+        "True"
+      ]
+    },
+    {
+      "name": "async_scheduling",
+      "source_kind": "official_parameter_with_source_supported_domain",
+      "tunability": "bounded_scheduler_policy",
+      "search_domain": [
+        "False",
+        "True"
+      ]
+    },
+    {
+      "name": "enable_flashinfer_autotune",
+      "source_kind": "official_parameter_gated_by_resolved_backend",
+      "tunability": "backend_gated_boolean",
+      "active_when": [
+        "software.resolved_attention_backend == FLASHINFER"
+      ],
+      "search_domain": [
+        "False",
+        "True"
+      ]
+    },
+    {
+      "name": "gpu_memory_utilization",
+      "source_kind": "official_parameter_selected_as_canonical_bo_coordinate",
+      "tunability": "canonical_bounded_memory_budget",
+      "search_domain": [
+        "0.75",
+        "0.80",
+        "0.85",
+        "0.90",
+        "0.95"
+      ],
+      "conflicts_or_overrides": [
+        "kv_cache_memory_bytes"
+      ],
+      "validation_evidence": [
+        "Source: vllm-0.20.0/vllm/v1/worker/gpu_worker.py compile_or_warm_up_model captures CUDA graphs, warms kernels and then preallocates sampler/logit buffers at maximum shapes. Initial model loading success alone does not establish sufficient headroom for warmup or all candidate batch/topology settings.",
+        "User-approved operational policy (2026-09-10), for this single-node 2x RTX4090 Qwen2-7B tuning scenario: reserve at least 5% of total per-GPU memory outside the gpu_memory_utilization budget for warmup, graph capture, transient allocations and estimation error. Therefore derive upper <= 1 - 0.05 = 0.95. This 5% is an explicit experimental safety policy, not a vLLM universal requirement or an empirical OOM-free guarantee. Do not replace it with an arbitrary 2% margin.",
+        "Derive the lower bound separately from MODEL-ARTIFACT-GPU-MEMORY-FLOOR (currently 0.75). Weight/activation/KV reserves inside that budget must not be confused with the outside warmup headroom. Search continuously across the resulting interval, not only legacy search_domain sample values."
+      ]
+    },
+    {
+      "name": "kv_cache_memory_bytes",
+      "source_kind": "official_parameter_excluded_from_current_bo_parameterization",
+      "tunability": "alternative_override_excluded_from_current_bo",
+      "search_domain": [],
+      "conflicts_or_overrides": [
+        "gpu_memory_utilization"
+      ]
+    },
+    {
+      "name": "kv_transfer_config",
+      "namespace": "vllm",
+      "source_kind": "official_integration_container",
+      "tunability": "generated_container",
+      "active_when": [
+        "cacheblend_mode == on"
+      ]
+    },
+    {
+      "name": "numa_bind_nodes",
+      "tunability": "parent_gated",
+      "parent_parameters": [
+        "numa_bind"
+      ],
+      "active_when": [
+        "numa_bind == true"
+      ]
+    },
+    {
+      "name": "numa_bind_cpus",
+      "tunability": "parent_gated_unbounded",
+      "parent_parameters": [
+        "numa_bind"
+      ],
+      "active_when": [
+        "numa_bind == true"
+      ]
+    },
+    {
+      "name": "prefix_caching_hash_algo",
+      "tunability": "parent_gated_categorical",
+      "parent_parameters": [
+        "enable_prefix_caching"
+      ],
+      "active_when": [
+        "enable_prefix_caching == true"
+      ],
+      "search_domain": [
+        "sha256",
+        "sha256_cbor"
+      ],
+      "validation_evidence": [
+        "vLLM 0.20.0 vllm/utils/hashing.py:26-59 and 81-99 dispatch sha256 to pickle.dumps(protocol=HIGHEST_PROTOCOL)+SHA256, and sha256_cbor to cbor2.dumps(canonical=True)+SHA256. These are separate executable serialization/hash paths, not aliases.",
+        "Local runtime validation on 2026-09-05 in vllm-0.20.0/.venv: both dispatch branches executed on two representative parent/token-tuple/extra-key inputs and returned distinct 32-byte hashes. Evidence: /home/lfy/sembench/my_storage/screening_results/mcp_runs/knob_range_q1q10_balanced80k_20260905/hash_algorithm_validation.json",
+        "This validates distinct effective implementations only; workload-specific performance benefit remains for downstream measured screening."
+      ]
+    },
+    {
+      "name": "speculative_config",
+      "namespace": "vllm",
+      "source_kind": "official_integration_container",
+      "tunability": "generated_container",
+      "active_when": [
+        "speculative_method != none"
+      ]
+    },
+    {
+      "name": "kv_offloading_size",
+      "tunability": "bounded_feature_gate_and_capacity",
+      "search_domain": [
+        "0",
+        "2",
+        "4",
+        "6",
+        "8",
+        "10",
+        "12",
+        "14",
+        "16"
+      ]
+    },
+    {
+      "name": "kv_offloading_backend",
+      "source_kind": "official_parameter_with_local_derivation",
+      "tunability": "parent_gated_categorical",
+      "parent_parameters": [
+        "kv_offloading_size"
+      ],
+      "active_when": [
+        "kv_offloading_size > 0"
+      ],
+      "search_domain": [
+        "native",
+        "lmcache"
+      ]
+    },
+    {
+      "name": "long_prefill_token_threshold",
+      "source_kind": "official_parameter_with_source_validated_bounded_domain",
+      "tunability": "bounded_non_negative_integer",
+      "search_domain": [
+        "0",
+        "16",
+        "32",
+        "64",
+        "128",
+        "256",
+        "512",
+        "1024"
+      ],
+      "validation_evidence": [
+        "Source: vllm-0.20.0/vllm/v1/core/sched/scheduler.py caps num_new_tokens only when 0 < long_prefill_token_threshold < num_new_tokens. Thresholds at or above the maximum first-prefill token count have identical first-prefill capping behavior. Model context capacity is a legality ceiling, not a workload-derived useful search ceiling.",
+        "For a fixed fully profiled workload, derive a workload-specific search upper bound from the maximum actual complete request prompt token count (including template/system/chat overhead where applicable). Use token features, never candidate row counts. If features already describe the complete tokenized input, do not add system/template tokens a second time. Do not inflate the bound to max_position_embeddings merely to retain legal but redundant values. Preserve all integers from 0 through the observed maximum; retain the special 0 reference and account for runtime normalization.",
+        "This is a workload-specific search restriction, not a proof of equivalence for every runtime path: resumed/preempted requests can include generated tokens; speculative or async paths can have extra pending tokens. State this limitation. Widen only with concrete workload/runtime evidence and an explicit rationale, rather than automatically using model capacity. If prompt coverage is incomplete or the feature excludes template overhead, report the missing evidence instead of asserting a measured hard bound.",
+        "Legacy search_domain powers-of-two entries are example candidates, not a restriction on arbitrary integer thresholds. Runtime legality must also respect effective max_model_len."
+      ]
+    },
+    {
+      "name": "distributed_executor_backend",
+      "validation_evidence": [
+        "vLLM 0.20.0 vllm/v1/executor/abstract.py:60-72 dispatches ray and mp to distinct RayDistributedExecutor and MultiprocExecutor classes. Both are documented concrete executor values; availability of Ray does not require choosing Ray.",
+        "The supplied qwen2_7b_2x4090_cacheblend scenario declares ray_package_available=true but contains no fixed distributed_executor_backend or Ray-only deployment constraint. Single-node multi-GPU execution also supports mp. This establishes separate available executor paths, not a measured steady-state advantage."
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "name": "CacheBlendConfig",
+      "description": "SCOOT experiment controls that materialize LMCache CacheBlend through vLLM's KVTransferConfig. The feature selector and bounded leaves are screened together; raw JSON and workload delimiters are represented so they can be explicitly rejected instead of silently omitted.",
+      "parameters": [
+        {
+          "name": "cacheblend_mode",
+          "flags": [
+            "--cacheblend-mode"
+          ],
+          "group": "CacheBlendConfig",
+          "description": "SCOOT feature-family selector. 'on' synthesizes LMCacheConnectorV1 KVTransferConfig and enables blending, 'off' omits that connector, and 'auto' preserves workload-provided behavior. For BO, on/off are the distinct controlled engine branches; auto is an orchestration fallback rather than a third CacheBlend implementation.",
+          "default": "auto",
+          "choices": [
+            "auto",
+            "on",
+            "off"
+          ],
+          "source_url": "scoot/flock/bo/arguments.py",
+          "source_anchor": "cacheblend_mode",
+          "namespace": "scoot",
+          "source_kind": "local_implementation",
+          "tunability": "bounded_feature_gate",
+          "parent_parameters": [],
+          "active_when": [],
+          "search_domain": [
+            "on",
+            "off"
+          ]
+        },
+        {
+          "name": "cacheblend_allow_prefix_caching",
+          "flags": [
+            "--cacheblend-allow-prefix-caching"
+          ],
+          "group": "CacheBlendConfig",
+          "description": "Compatibility gate controlling whether vLLM automatic prefix caching may remain enabled in a CacheBlend-on trial. It creates the CacheBlend+prefix-cache coexistence branch; feasibility and quality are measured by the same BO trial rather than by a separate experiment category.",
+          "default": "False",
+          "choices": [
+            "False",
+            "True"
+          ],
+          "source_url": "scoot/flock/trial/arguments.py",
+          "source_anchor": "effective_prefix_caching_enabled",
+          "namespace": "scoot",
+          "source_kind": "local_implementation",
+          "tunability": "bounded_compatibility_gate",
+          "parent_parameters": [
+            "cacheblend_mode"
+          ],
+          "active_when": [
+            "cacheblend_mode == on"
+          ],
+          "search_domain": [
+            "False",
+            "True"
+          ]
+        },
+        {
+          "name": "lmcache_chunk_size",
+          "flags": [
+            "--lmcache-chunk-size"
+          ],
+          "group": "CacheBlendConfig",
+          "description": "LMCache token chunk size passed through LMCACHE_CHUNK_SIZE. It changes cache granularity, transfer/reuse work, memory behavior, and therefore steady-state latency and throughput when the LMCache CacheBlend branch is active.",
+          "default": "16",
+          "choices": [],
+          "source_url": "scoot/flock/trial/runner.py",
+          "source_anchor": "LMCACHE_CHUNK_SIZE",
+          "namespace": "lmcache",
+          "source_kind": "local_implementation",
+          "tunability": "bounded_conditional_integer",
+          "parent_parameters": [
+            "cacheblend_mode"
+          ],
+          "active_when": [
+            "cacheblend_mode == on"
+          ],
+          "search_domain": [
+            "8",
+            "16",
+            "32",
+            "64"
+          ]
+        },
+        {
+          "name": "cacheblend_blend_min_tokens",
+          "flags": [
+            "--cacheblend-blend-min-tokens"
+          ],
+          "group": "CacheBlendConfig",
+          "description": "Value materialized as lmcache.blend_min_tokens. It controls the minimum reusable token span for blending and can trade reuse overhead, TTFT, throughput, and result quality when CacheBlend is active.",
+          "default": "16",
+          "choices": [],
+          "source_url": "scoot/flock/trial/arguments.py",
+          "source_anchor": "lmcache.blend_min_tokens",
+          "namespace": "lmcache",
+          "source_kind": "local_implementation",
+          "tunability": "bounded_conditional_integer",
+          "parent_parameters": [
+            "cacheblend_mode"
+          ],
+          "active_when": [
+            "cacheblend_mode == on"
+          ],
+          "search_domain": [
+            "8",
+            "16",
+            "24",
+            "32",
+            "40",
+            "48",
+            "56",
+            "64"
+          ]
+        },
+        {
+          "name": "cacheblend_blend_check_layers",
+          "flags": [
+            "--cacheblend-blend-check-layers"
+          ],
+          "group": "CacheBlendConfig",
+          "description": "Zero-based transformer layer indices passed to LMCache blend_check_layers. At a check layer, installed LMCache 0.4.5 compares newly computed K against cached K (sum of squared differences per token), then retains the top-ranked tokens for subsequent recomputation. Legal indices depend on num_hidden_layers in the actual model config, not num_attention_heads. The installed process_qkv shrinks q/k/residual after a partial-recompute check but compares against full cached K at the next check. Consequently multiple check layers with first recompute ratio below 1 cause tensor-shape mismatch; use a SINGLE layer index for partial recomputation. Different per-layer ratios are not implemented. Full recomputation does not shrink tensors, but repeated checks add work without reducing recomputation. Choose useful single-layer indices from inspected model depth and source/workload evidence, retaining the measured reference. This is a list-valued CLI string: one index 1 is encoded as categorical string \"1\", not integer 1 or nested array.",
+          "default": "[1]",
+          "choices": [],
+          "source_url": "/home/lfy/sembench/vllm-0.20.0/.venv/lib/python3.12/site-packages/lmcache/v1/compute/blend/blender.py",
+          "source_anchor": "LMCBlender.process_qkv",
+          "namespace": "lmcache",
+          "source_kind": "local_implementation",
+          "tunability": "bounded_conditional_categorical",
+          "parent_parameters": [
+            "cacheblend_mode"
+          ],
+          "active_when": [
+            "cacheblend_mode == on"
+          ]
+        },
+        {
+          "name": "cacheblend_blend_recompute_ratios",
+          "flags": [
+            "--cacheblend-blend-recompute-ratios"
+          ],
+          "group": "CacheBlendConfig",
+          "description": "Token recomputation fraction passed to LMCache blend_recompute_ratios. Installed LMCache 0.4.5 process_qkv reads ONLY recomp_ratios[0]; additional list elements are ignored, and per-layer distinct ratios are not implemented. Use one scalar ratio encoded as a CLI string category. At a check layer it selects max(1, floor(token_count * ratio)) tokens with largest squared K difference. Meaningful fraction bounds are 0 <= ratio <= 1; ratio 0 still selects at least one token, while ratio 1 retains all tokens. Higher fractions increase recomputation work and can improve quality; they do not guarantee monotonic quality. Multiple check layers with partial ratios below 1 are incompatible with the current tensor shapes. The layer and ratio list lengths are NOT required to match by this implementation.",
+          "default": "[0.15]",
+          "choices": [],
+          "source_url": "/home/lfy/sembench/vllm-0.20.0/.venv/lib/python3.12/site-packages/lmcache/v1/compute/blend/blender.py",
+          "source_anchor": "LMCBlender.process_qkv",
+          "namespace": "lmcache",
+          "source_kind": "local_implementation",
+          "tunability": "bounded_conditional_categorical",
+          "parent_parameters": [
+            "cacheblend_mode"
+          ],
+          "active_when": [
+            "cacheblend_mode == on"
+          ]
+        },
+        {
+          "name": "cacheblend_blend_special_str",
+          "flags": [
+            "--cacheblend-blend-special-str"
+          ],
+          "group": "CacheBlendConfig",
+          "description": "Workload delimiter materialized as lmcache.blend_special_str. It must match prompt construction semantics; changing it is not an engine-efficiency search dimension.",
+          "default": " # # ",
+          "choices": [],
+          "source_url": "scoot/flock/trial/arguments.py",
+          "source_anchor": "lmcache.blend_special_str",
+          "namespace": "lmcache",
+          "source_kind": "local_implementation",
+          "tunability": "fixed_workload_semantics",
+          "parent_parameters": [
+            "cacheblend_mode"
+          ],
+          "active_when": [
+            "cacheblend_mode == on"
+          ],
+          "search_domain": []
+        },
+        {
+          "name": "kv_transfer_config_json",
+          "flags": [
+            "--kv-transfer-config-json"
+          ],
+          "group": "CacheBlendConfig",
+          "description": "SCOOT raw JSON escape hatch forwarded to vLLM KVTransferConfig. It can express CacheBlend, but the JSON object itself is not a bounded BO dimension; cacheblend_mode and the structured child fields synthesize it.",
+          "default": null,
+          "choices": [],
+          "source_url": "scoot/flock/trial/arguments.py",
+          "source_anchor": "resolve_kv_transfer_config",
+          "namespace": "scoot",
+          "source_kind": "local_implementation",
+          "tunability": "generated_container",
+          "parent_parameters": [],
+          "active_when": [],
+          "search_domain": []
+        }
+      ]
+    },
+    {
+      "name": "SpeculativeDecodingConfig",
+      "description": "Bounded SCOOT leaves that synthesize vLLM SpeculativeConfig. The raw speculative_config JSON remains an escape hatch, while BO searches the n-gram feature selector and its gated token-count leaf.",
+      "parameters": [
+        {
+          "name": "speculative_method",
+          "flags": [
+            "--speculative-method"
+          ],
+          "group": "SpeculativeDecodingConfig",
+          "description": "SCOOT feature selector used to synthesize speculative_config.method. The bounded current domain compares ordinary decoding ('none', represented by omitting speculative_config) with vLLM prompt-lookup n-gram speculative decoding ('ngram'), which requires no additional draft-model artifact.",
+          "default": "none",
+          "choices": [
+            "none",
+            "ngram"
+          ],
+          "source_url": "scoot/flock/trial/arguments.py",
+          "source_anchor": "resolve_speculative_config",
+          "namespace": "scoot",
+          "source_kind": "local_implementation_backed_by_vllm_speculative_config",
+          "tunability": "bounded_feature_gate",
+          "parent_parameters": [],
+          "active_when": [],
+          "search_domain": [
+            "none",
+            "ngram"
+          ]
+        },
+        {
+          "name": "num_speculative_tokens",
+          "flags": [
+            "--num-speculative-tokens"
+          ],
+          "group": "SpeculativeDecodingConfig",
+          "description": "Number of candidate tokens proposed per speculative step. SCOOT materializes it as speculative_config.num_speculative_tokens; it affects draft/verification work and is meaningful only when speculative_method is enabled. The current BO domain is the finite integer range 2 through 8.",
+          "default": null,
+          "choices": [],
+          "source_url": "scoot/flock/trial/arguments.py",
+          "source_anchor": "resolve_speculative_config",
+          "namespace": "scoot",
+          "source_kind": "local_implementation_backed_by_vllm_speculative_config",
+          "tunability": "bounded_conditional_integer",
+          "parent_parameters": [
+            "speculative_method"
+          ],
+          "active_when": [
+            "speculative_method == ngram"
+          ],
+          "search_domain": [
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ChunkedPrefillConfig",
+      "description": "Explicit boolean alias of the vLLM chunked-prefill engine setting.",
+      "parameters": [
+        {
+          "name": "chunked_prefill",
+          "flags": [
+            "--enable-chunked-prefill",
+            "--no-enable-chunked-prefill"
+          ],
+          "group": "ChunkedPrefillConfig",
+          "description": "Boolean tuning knob for chunked prefill. true maps to vLLM enable_chunked_prefill=true; false maps to enable_chunked_prefill=false. This is the sole search coordinate for that engine setting. CacheBlend on requires false. When false, max_num_batched_tokens must cover max_model_len.",
+          "default": true,
+          "choices": [
+            false,
+            true
+          ],
+          "namespace": "vllm",
+          "source_kind": "explicit_engine_boolean_alias",
+          "tunability": "bounded_boolean_feature_parent",
+          "search_domain": [
+            false,
+            true
+          ],
+          "parent_parameters": [],
+          "active_when": [],
+          "conflicts_or_overrides": [
+            "Alias of enable_chunked_prefill: never tune both coordinates.",
+            "cacheblend_mode == on implies chunked_prefill == false"
+          ],
+          "validation_evidence": [
+            "Baseline BASELINE_TO_TRIAL_ARGUMENT and Range SCREENING_TO_BO_NAME map chunked_prefill to enable_chunked_prefill.",
+            "The pinned vLLM BooleanOptionalAction accepts both enable and no-enable flags."
+          ],
+          "source_url": "https://docs.vllm.ai/en/v0.20.0/cli/serve/#-enable-chunked-prefill-no-enable-chunked-prefill",
+          "source_anchor": "chunked_prefill"
+        }
+      ]
+    }
+  ]
+}

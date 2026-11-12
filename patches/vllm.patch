@@ -1,0 +1,65 @@
+diff --git a/vllm/v1/worker/gpu_model_runner.py b/vllm/v1/worker/gpu_model_runner.py
+index a0ba47f94..7ae3edc3b 100644
+--- a/vllm/v1/worker/gpu_model_runner.py
++++ b/vllm/v1/worker/gpu_model_runner.py
+@@ -4,6 +4,7 @@
+ import functools
+ import gc
+ import itertools
++import os
+ import threading
+ import time
+ from collections import defaultdict
+@@ -4881,6 +4882,7 @@ class GPUModelRunner(
+             format_gib(self.model_memory_usage),
+             time_after_load - time_before_load,
+         )
++        self._maybe_register_lmcache_blend_model()
+         if not load_dummy_weights:
+             prepare_communication_buffer_for_model(self.model)
+             if (drafter := getattr(self, "drafter", None)) and (
+@@ -4942,6 +4944,33 @@ class GPUModelRunner(
+ 
+         get_offloader().post_init()
+ 
++    def _maybe_register_lmcache_blend_model(self) -> None:
++        kv_transfer_config = self.vllm_config.kv_transfer_config
++        if kv_transfer_config is None:
++            return
++        if kv_transfer_config.kv_connector != "LMCacheConnectorV1":
++            return
++
++        enable_blending = kv_transfer_config.get_from_extra_config(
++            "lmcache.enable_blending", None
++        )
++        if enable_blending is None:
++            enable_blending = os.environ.get("LMCACHE_ENABLE_BLENDING", "")
++        if str(enable_blending).lower() not in ("true", "1", "yes", "y", "on"):
++            return
++
++        try:
++            from lmcache.integration.vllm.utils import ENGINE_NAME
++            from lmcache.v1.compute.models.utils import VLLMModelTracker
++        except ImportError:
++            logger.warning(
++                "LMCache CacheBlend is enabled, but LMCache model tracker "
++                "could not be imported."
++            )
++            return
++
++        VLLMModelTracker.register_model(ENGINE_NAME, self.model)
++
+     def _get_eagle3_aux_layers_from_config(self) -> tuple[int, ...] | None:
+         """Extract Eagle3 auxiliary layer indices from speculative config.
+ 
+diff --git a/vllm/attention.py b/vllm/attention.py
+new file mode 100644
+--- /dev/null
++++ b/vllm/attention.py
+@@ -0,0 +1,6 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++
++from vllm.model_executor.layers.attention import Attention
++
++__all__ = ["Attention"]

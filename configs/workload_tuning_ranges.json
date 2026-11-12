@@ -1,0 +1,1579 @@
+{
+  "schema_version": "sembench.workload-tuning-ranges.v1",
+  "field_guide": {
+    "layout": "workloads → workload 名称 → model 名称 → parameters / joint_constraints；每个参数单独一块。",
+    "decision": "tune：搜索；fixed：固定；conditional：满足 activation_conditions 时搜索；composite：与其他参数联合搜索。",
+    "domain": "values 为离散候选；lower/upper 为闭区间；kind 为数据类型；scale 为采样尺度。",
+    "granularity": "any_integer 包含区间内所有整数（即使 scale=log）；powers_of_base 仅包含 base 的整数次幂。",
+    "reference_value": "参考配置值，不限制可搜索的其他合法值。fixed_value 仅用于 fixed 参数。",
+    "activation_conditions": "满足列出的条件时参数才生效；省略表示无额外生效条件。",
+    "bo_name": "BO 内部名称，仅在不同于 name 时填写；group_id、depends_on、composite_group 描述分组和依赖。",
+    "joint_constraints": "跨参数的联合约束，必须与各参数范围一起满足。"
+  },
+  "workloads": {
+    "movies": {
+      "Qwen2-7B-Instruct": {
+        "parameters": [
+          {
+            "name": "dtype",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["bfloat16", "half"]},
+            "reference_value": "bfloat16"
+          },
+          {
+            "name": "quantization",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["none", "awq_marlin", "gptq_marlin"]},
+            "reference_value": "none"
+          },
+          {
+            "name": "enforce_eager",
+            "group_id": "execution_mode",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": false
+          },
+          {
+            "name": "disable_cascade_attn",
+            "group_id": "execution_mode",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "tensor_parallel_size",
+            "bo_name": "tp",
+            "group_id": "parallel_topology",
+            "decision": "composite",
+            "domain": {"kind": "integer", "values": [1, 2]},
+            "reference_value": 2,
+            "composite_group": "parallel_topology"
+          },
+          {
+            "name": "decode_context_parallel_size",
+            "group_id": "parallel_topology",
+            "decision": "fixed",
+            "fixed_value": 1,
+            "reference_value": 1
+          },
+          {
+            "name": "cp_kv_cache_interleave_size",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "integer", "lower": 1, "upper": 16, "scale": "linear", "granularity": "any_integer"},
+            "reference_value": 1,
+            "activation_conditions": ["decode_context_parallel_size > 1"],
+            "depends_on": ["decode_context_parallel_size"]
+          },
+          {
+            "name": "data_parallel_size",
+            "group_id": "parallel_topology",
+            "decision": "composite",
+            "domain": {"kind": "integer", "values": [1, 2]},
+            "reference_value": 1,
+            "composite_group": "parallel_topology"
+          },
+          {
+            "name": "data_parallel_backend",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "categorical", "values": ["mp", "ray"]},
+            "reference_value": "mp",
+            "activation_conditions": ["data_parallel_size > 1"],
+            "depends_on": ["data_parallel_size"]
+          },
+          {
+            "name": "disable_nccl_for_dp_synchronization",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "boolean", "values": [true, false]},
+            "reference_value": true,
+            "activation_conditions": ["data_parallel_size > 1"],
+            "depends_on": ["data_parallel_size"]
+          },
+          {
+            "name": "block_size",
+            "group_id": "kv_cache_layout",
+            "decision": "tune",
+            "domain": {"kind": "integer", "values": [16, 32, 64]},
+            "reference_value": 16
+          },
+          {
+            "name": "kv_cache_dtype",
+            "group_id": "kv_cache_layout",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["float16", "bfloat16", "fp8_e4m3", "fp8_e5m2", "int8_per_token_head", "fp8_per_token_head"]},
+            "reference_value": "bfloat16"
+          },
+          {
+            "name": "gpu_memory_utilization",
+            "group_id": "memory_budget",
+            "decision": "tune",
+            "domain": {"kind": "float", "lower": 0.75, "upper": 0.95, "scale": "linear", "granularity": "any_float"},
+            "reference_value": 0.9
+          },
+          {
+            "name": "enable_prefix_caching",
+            "group_id": "prefix_caching",
+            "decision": "fixed",
+            "fixed_value": true,
+            "reference_value": true
+          },
+          {
+            "name": "prefix_caching_hash_algo",
+            "group_id": "prefix_caching",
+            "decision": "conditional",
+            "domain": {"kind": "categorical", "values": ["sha256", "sha256_cbor"]},
+            "reference_value": "sha256",
+            "activation_conditions": ["enable_prefix_caching == true"],
+            "depends_on": ["enable_prefix_caching"]
+          },
+          {
+            "name": "max_num_batched_tokens",
+            "group_id": "scheduler_capacity",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 512, "upper": 16384, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 4096
+          },
+          {
+            "name": "max_num_seqs",
+            "group_id": "scheduler_capacity",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 64, "upper": 4096, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 256
+          },
+          {
+            "name": "long_prefill_token_threshold",
+            "group_id": "scheduler_policy",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 0, "upper": 2000, "scale": "linear", "granularity": "any_integer"},
+            "reference_value": 0
+          },
+          {
+            "name": "scheduler_reserve_full_isl",
+            "group_id": "scheduler_policy",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "async_scheduling",
+            "group_id": "scheduler_policy",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          }
+        ],
+        "joint_constraints": [
+          {
+            "id": "gpu_topology_budget",
+            "parameters": ["tensor_parallel_size", "data_parallel_size"],
+            "expression": "tensor_parallel_size * data_parallel_size == 2"
+          },
+          {
+            "id": "dcp_divides_tp",
+            "parameters": ["decode_context_parallel_size", "tensor_parallel_size"],
+            "expression": "tensor_parallel_size % decode_context_parallel_size == 0"
+          },
+          {
+            "id": "prefix_hash_parent",
+            "parameters": ["enable_prefix_caching", "prefix_caching_hash_algo"],
+            "expression": "prefix_caching_hash_algo is active only when enable_prefix_caching == true"
+          },
+          {
+            "id": "async_executor_compatibility",
+            "parameters": ["data_parallel_backend", "async_scheduling"],
+            "expression": "data_parallel_backend == 'ray' implies async_scheduling == false unless VLLM_USE_RAY_V2_EXECUTOR_BACKEND == 1"
+          }
+        ],
+        "provenance": {
+          "history": "my_storage/repair_reflect_movies50_fullrerun_20260928T235044/candidate_optimizer/bo_history.json",
+          "domain": "my_storage/screening_results/mcp_runs/repairbo50_proposal_review_20260906T132036/inputs/bo_domain_spec.json",
+          "domain_sha256": "876fe0b3f973ede2aa949cef63f3e48c2611cbdcbac7f9d2170afbf73bad0346"
+        }
+      },
+      "Llama-3.1-8B-Instruct": {
+        "parameters": [
+          {
+            "name": "dtype",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["bfloat16", "half"]},
+            "reference_value": "bfloat16"
+          },
+          {
+            "name": "quantization",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["none", "awq_marlin", "gptq_marlin"]},
+            "reference_value": "none"
+          },
+          {
+            "name": "enforce_eager",
+            "group_id": "execution_mode",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": false
+          },
+          {
+            "name": "disable_cascade_attn",
+            "group_id": "execution_mode",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "tensor_parallel_size",
+            "bo_name": "tp",
+            "group_id": "parallel_topology",
+            "decision": "composite",
+            "domain": {"kind": "integer", "values": [1, 2]},
+            "reference_value": 2,
+            "composite_group": "parallel_topology"
+          },
+          {
+            "name": "decode_context_parallel_size",
+            "group_id": "parallel_topology",
+            "decision": "fixed",
+            "fixed_value": 1,
+            "reference_value": 1
+          },
+          {
+            "name": "cp_kv_cache_interleave_size",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "integer", "lower": 1, "upper": 16, "scale": "linear", "granularity": "any_integer"},
+            "reference_value": 1,
+            "activation_conditions": ["decode_context_parallel_size > 1"],
+            "depends_on": ["decode_context_parallel_size"]
+          },
+          {
+            "name": "data_parallel_size",
+            "group_id": "parallel_topology",
+            "decision": "composite",
+            "domain": {"kind": "integer", "values": [1, 2]},
+            "reference_value": 1,
+            "composite_group": "parallel_topology"
+          },
+          {
+            "name": "data_parallel_backend",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "categorical", "values": ["mp", "ray"]},
+            "reference_value": "mp",
+            "activation_conditions": ["data_parallel_size > 1"],
+            "depends_on": ["data_parallel_size"]
+          },
+          {
+            "name": "disable_nccl_for_dp_synchronization",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "boolean", "values": [true, false]},
+            "reference_value": true,
+            "activation_conditions": ["data_parallel_size > 1"],
+            "depends_on": ["data_parallel_size"]
+          },
+          {
+            "name": "block_size",
+            "group_id": "kv_cache_layout",
+            "decision": "tune",
+            "domain": {"kind": "integer", "values": [16, 32, 64]},
+            "reference_value": 16
+          },
+          {
+            "name": "kv_cache_dtype",
+            "group_id": "kv_cache_layout",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["float16", "bfloat16", "fp8_e4m3", "fp8_e5m2", "int8_per_token_head", "fp8_per_token_head"]},
+            "reference_value": "bfloat16"
+          },
+          {
+            "name": "gpu_memory_utilization",
+            "group_id": "memory_budget",
+            "decision": "tune",
+            "domain": {"kind": "float", "lower": 0.75, "upper": 0.95, "scale": "linear", "granularity": "any_float"},
+            "reference_value": 0.9
+          },
+          {
+            "name": "enable_prefix_caching",
+            "group_id": "prefix_caching",
+            "decision": "fixed",
+            "fixed_value": true,
+            "reference_value": true
+          },
+          {
+            "name": "prefix_caching_hash_algo",
+            "group_id": "prefix_caching",
+            "decision": "conditional",
+            "domain": {"kind": "categorical", "values": ["sha256", "sha256_cbor"]},
+            "reference_value": "sha256",
+            "activation_conditions": ["enable_prefix_caching == true"],
+            "depends_on": ["enable_prefix_caching"]
+          },
+          {
+            "name": "max_num_batched_tokens",
+            "group_id": "scheduler_capacity",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 512, "upper": 16384, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 4096
+          },
+          {
+            "name": "max_num_seqs",
+            "group_id": "scheduler_capacity",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 64, "upper": 4096, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 256
+          },
+          {
+            "name": "long_prefill_token_threshold",
+            "group_id": "scheduler_policy",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 0, "upper": 2000, "scale": "linear", "granularity": "any_integer"},
+            "reference_value": 0
+          },
+          {
+            "name": "scheduler_reserve_full_isl",
+            "group_id": "scheduler_policy",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "async_scheduling",
+            "group_id": "scheduler_policy",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          }
+        ],
+        "joint_constraints": [
+          {
+            "id": "gpu_topology_budget",
+            "parameters": ["tensor_parallel_size", "data_parallel_size"],
+            "expression": "tensor_parallel_size * data_parallel_size == 2"
+          },
+          {
+            "id": "dcp_divides_tp",
+            "parameters": ["decode_context_parallel_size", "tensor_parallel_size"],
+            "expression": "tensor_parallel_size % decode_context_parallel_size == 0"
+          },
+          {
+            "id": "prefix_hash_parent",
+            "parameters": ["enable_prefix_caching", "prefix_caching_hash_algo"],
+            "expression": "prefix_caching_hash_algo is active only when enable_prefix_caching == true"
+          },
+          {
+            "id": "async_executor_compatibility",
+            "parameters": ["data_parallel_backend", "async_scheduling"],
+            "expression": "data_parallel_backend == 'ray' implies async_scheduling == false unless VLLM_USE_RAY_V2_EXECUTOR_BACKEND == 1"
+          }
+        ],
+        "provenance": {
+          "history": "my_storage/llama31_movies_repairbo50_stableq_len2048_20261019T184230/candidate_optimizer/bo_history.json",
+          "domain": "my_storage/llama31_movies_repairbo50_stableq_len2048_20261019T184230/inputs/domain.json",
+          "domain_sha256": "e81846a2731e607417b7161c303082433e30dcada8e41d627ac52a5c0e052ee7"
+        }
+      }
+    },
+    "mmqa_ecomm": {
+      "Qwen2-7B-Instruct": {
+        "parameters": [
+          {
+            "name": "dtype",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["bfloat16", "half"]},
+            "reference_value": "bfloat16"
+          },
+          {
+            "name": "quantization",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["none", "awq_marlin", "gptq_marlin"]},
+            "reference_value": "none"
+          },
+          {
+            "name": "enforce_eager",
+            "group_id": "execution_mode",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": false
+          },
+          {
+            "name": "disable_cascade_attn",
+            "group_id": "execution_mode",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "tensor_parallel_size",
+            "bo_name": "tp",
+            "group_id": "parallel_topology",
+            "decision": "fixed",
+            "fixed_value": 1,
+            "reference_value": 1
+          },
+          {
+            "name": "decode_context_parallel_size",
+            "group_id": "parallel_topology",
+            "decision": "fixed",
+            "fixed_value": 1,
+            "reference_value": 1
+          },
+          {
+            "name": "cp_kv_cache_interleave_size",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "integer", "lower": 1, "upper": 16, "scale": "linear", "granularity": "any_integer"},
+            "reference_value": 1,
+            "activation_conditions": ["decode_context_parallel_size > 1"],
+            "depends_on": ["decode_context_parallel_size"]
+          },
+          {
+            "name": "data_parallel_size",
+            "group_id": "parallel_topology",
+            "decision": "fixed",
+            "fixed_value": 2,
+            "reference_value": 2
+          },
+          {
+            "name": "data_parallel_backend",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "categorical", "values": ["mp", "ray"]},
+            "reference_value": "mp",
+            "activation_conditions": ["data_parallel_size > 1"],
+            "depends_on": ["data_parallel_size"]
+          },
+          {
+            "name": "disable_nccl_for_dp_synchronization",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "boolean", "values": [true, false]},
+            "reference_value": true,
+            "activation_conditions": ["data_parallel_size > 1"],
+            "depends_on": ["data_parallel_size"]
+          },
+          {
+            "name": "block_size",
+            "group_id": "kv_cache_layout",
+            "decision": "tune",
+            "domain": {"kind": "integer", "values": [16, 32, 64]},
+            "reference_value": 16
+          },
+          {
+            "name": "kv_cache_dtype",
+            "group_id": "kv_cache_layout",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["float16", "bfloat16", "fp8_e4m3", "fp8_e5m2", "int8_per_token_head", "fp8_per_token_head"]},
+            "reference_value": "bfloat16"
+          },
+          {
+            "name": "gpu_memory_utilization",
+            "group_id": "memory_budget",
+            "decision": "tune",
+            "domain": {"kind": "float", "lower": 0.75, "upper": 0.95, "scale": "linear", "granularity": "any_float"},
+            "reference_value": 0.9
+          },
+          {
+            "name": "enable_prefix_caching",
+            "group_id": "prefix_caching",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "prefix_caching_hash_algo",
+            "group_id": "prefix_caching",
+            "decision": "conditional",
+            "domain": {"kind": "categorical", "values": ["sha256", "sha256_cbor"]},
+            "reference_value": "sha256",
+            "activation_conditions": ["enable_prefix_caching == true"],
+            "depends_on": ["enable_prefix_caching"]
+          },
+          {
+            "name": "max_num_batched_tokens",
+            "group_id": "scheduler_capacity",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 512, "upper": 16384, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 4096
+          },
+          {
+            "name": "max_num_seqs",
+            "group_id": "scheduler_capacity",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 64, "upper": 4096, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 256
+          },
+          {
+            "name": "long_prefill_token_threshold",
+            "group_id": "scheduler_policy",
+            "decision": "fixed",
+            "fixed_value": 0,
+            "reference_value": 0
+          },
+          {
+            "name": "scheduler_reserve_full_isl",
+            "group_id": "scheduler_policy",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "async_scheduling",
+            "group_id": "scheduler_policy",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "enable_chunked_prefill",
+            "group_id": "scheduler",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "max_model_len",
+            "group_id": "scheduler",
+            "decision": "fixed",
+            "fixed_value": 4096,
+            "reference_value": 4096
+          },
+          {
+            "name": "model_impl",
+            "group_id": "parallel_topology",
+            "decision": "fixed",
+            "fixed_value": "vllm",
+            "reference_value": "vllm"
+          }
+        ],
+        "joint_constraints": [
+          {
+            "id": "gpu_topology_budget",
+            "parameters": ["tensor_parallel_size", "data_parallel_size"],
+            "expression": "tensor_parallel_size * data_parallel_size == 2"
+          },
+          {
+            "id": "dcp_divides_tp",
+            "parameters": ["decode_context_parallel_size", "tensor_parallel_size"],
+            "expression": "tensor_parallel_size % decode_context_parallel_size == 0"
+          },
+          {
+            "id": "prefix_hash_parent",
+            "parameters": ["enable_prefix_caching", "prefix_caching_hash_algo"],
+            "expression": "prefix_caching_hash_algo is active only when enable_prefix_caching == true"
+          },
+          {
+            "id": "async_executor_compatibility",
+            "parameters": ["data_parallel_backend", "async_scheduling"],
+            "expression": "data_parallel_backend == 'ray' implies async_scheduling == false unless VLLM_USE_RAY_V2_EXECUTOR_BACKEND == 1"
+          },
+          {
+            "id": "full_prefill_token_budget",
+            "parameters": ["enable_chunked_prefill", "max_num_batched_tokens", "max_model_len"],
+            "max_model_len": 4096,
+            "expression": "enable_chunked_prefill == false implies max_num_batched_tokens >= max_model_len"
+          }
+        ],
+        "provenance": {
+          "history": "my_storage/mmqa_ecomm_shuffled_repair50_experience_tp1dp2_20260917/candidate_optimizer/bo_history.json",
+          "domain": "my_storage/mmqa_ecomm_shuffled_repair50_experience_tp1dp2_20260917/inputs/bo_domain_spec.json",
+          "domain_sha256": "d3a1a810bb65ea9e32a31dbbf10160256c143891fe66ee125dd5422c01938c8d"
+        }
+      },
+      "Llama-3.1-8B-Instruct": {
+        "parameters": [
+          {
+            "name": "dtype",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["bfloat16", "half"]},
+            "reference_value": "bfloat16"
+          },
+          {
+            "name": "quantization",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["none", "awq_marlin", "gptq_marlin"]},
+            "reference_value": "none"
+          },
+          {
+            "name": "enforce_eager",
+            "group_id": "execution_mode",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": false
+          },
+          {
+            "name": "disable_cascade_attn",
+            "group_id": "execution_mode",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "tensor_parallel_size",
+            "bo_name": "tp",
+            "group_id": "parallel_topology",
+            "decision": "composite",
+            "domain": {"kind": "integer", "values": [1, 2]},
+            "reference_value": 2,
+            "composite_group": "parallel_topology"
+          },
+          {
+            "name": "decode_context_parallel_size",
+            "group_id": "parallel_topology",
+            "decision": "fixed",
+            "fixed_value": 1,
+            "reference_value": 1
+          },
+          {
+            "name": "cp_kv_cache_interleave_size",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "integer", "lower": 1, "upper": 16, "scale": "linear", "granularity": "any_integer"},
+            "reference_value": 1,
+            "activation_conditions": ["decode_context_parallel_size > 1"],
+            "depends_on": ["decode_context_parallel_size"]
+          },
+          {
+            "name": "data_parallel_size",
+            "group_id": "parallel_topology",
+            "decision": "composite",
+            "domain": {"kind": "integer", "values": [1, 2]},
+            "reference_value": 1,
+            "composite_group": "parallel_topology"
+          },
+          {
+            "name": "data_parallel_backend",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "categorical", "values": ["mp", "ray"]},
+            "reference_value": "mp",
+            "activation_conditions": ["data_parallel_size > 1"],
+            "depends_on": ["data_parallel_size"]
+          },
+          {
+            "name": "disable_nccl_for_dp_synchronization",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "boolean", "values": [true, false]},
+            "reference_value": true,
+            "activation_conditions": ["data_parallel_size > 1"],
+            "depends_on": ["data_parallel_size"]
+          },
+          {
+            "name": "block_size",
+            "group_id": "kv_cache_layout",
+            "decision": "tune",
+            "domain": {"kind": "integer", "values": [16, 32, 64]},
+            "reference_value": 16
+          },
+          {
+            "name": "kv_cache_dtype",
+            "group_id": "kv_cache_layout",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["float16", "bfloat16", "fp8_e4m3", "fp8_e5m2", "int8_per_token_head", "fp8_per_token_head"]},
+            "reference_value": "bfloat16"
+          },
+          {
+            "name": "gpu_memory_utilization",
+            "group_id": "memory_budget",
+            "decision": "tune",
+            "domain": {"kind": "float", "lower": 0.75, "upper": 0.95, "scale": "linear", "granularity": "any_float"},
+            "reference_value": 0.9
+          },
+          {
+            "name": "enable_prefix_caching",
+            "group_id": "prefix_caching",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "prefix_caching_hash_algo",
+            "group_id": "prefix_caching",
+            "decision": "conditional",
+            "domain": {"kind": "categorical", "values": ["sha256", "sha256_cbor"]},
+            "reference_value": "sha256",
+            "activation_conditions": ["enable_prefix_caching == true"],
+            "depends_on": ["enable_prefix_caching"]
+          },
+          {
+            "name": "max_num_batched_tokens",
+            "group_id": "scheduler_capacity",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 512, "upper": 16384, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 4096
+          },
+          {
+            "name": "max_num_seqs",
+            "group_id": "scheduler_capacity",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 64, "upper": 4096, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 256
+          },
+          {
+            "name": "long_prefill_token_threshold",
+            "group_id": "scheduler_policy",
+            "decision": "fixed",
+            "fixed_value": 0,
+            "reference_value": 0
+          },
+          {
+            "name": "scheduler_reserve_full_isl",
+            "group_id": "scheduler_policy",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "async_scheduling",
+            "group_id": "scheduler_policy",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "enable_chunked_prefill",
+            "group_id": "scheduler",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "max_model_len",
+            "group_id": "scheduler",
+            "decision": "fixed",
+            "fixed_value": 4096,
+            "reference_value": 4096
+          }
+        ],
+        "joint_constraints": [
+          {
+            "id": "gpu_topology_budget",
+            "parameters": ["tensor_parallel_size", "data_parallel_size"],
+            "expression": "tensor_parallel_size * data_parallel_size == 2"
+          },
+          {
+            "id": "dcp_divides_tp",
+            "parameters": ["decode_context_parallel_size", "tensor_parallel_size"],
+            "expression": "tensor_parallel_size % decode_context_parallel_size == 0"
+          },
+          {
+            "id": "prefix_hash_parent",
+            "parameters": ["enable_prefix_caching", "prefix_caching_hash_algo"],
+            "expression": "prefix_caching_hash_algo is active only when enable_prefix_caching == true"
+          },
+          {
+            "id": "async_executor_compatibility",
+            "parameters": ["data_parallel_backend", "async_scheduling"],
+            "expression": "data_parallel_backend == 'ray' implies async_scheduling == false unless VLLM_USE_RAY_V2_EXECUTOR_BACKEND == 1"
+          },
+          {
+            "id": "full_prefill_token_budget",
+            "parameters": ["enable_chunked_prefill", "max_num_batched_tokens", "max_model_len"],
+            "max_model_len": 4096,
+            "expression": "enable_chunked_prefill == false implies max_num_batched_tokens >= max_model_len"
+          }
+        ],
+        "provenance": {
+          "history": "my_storage/llama31_mmqa_hotpot_repairbo50_20261020T0035/mmqa_ecomm/candidate_optimizer/bo_history.json",
+          "domain": "my_storage/llama31_mmqa_hotpot_repairbo50_20261020T0035/mmqa_ecomm/inputs/domain.json",
+          "domain_sha256": "a76d23373480a97061b6e07f8d95ab3be5365dda3c72d63a3f649124d56deedf"
+        }
+      }
+    },
+    "hotpotqa": {
+      "Qwen2-7B-Instruct": {
+        "parameters": [
+          {
+            "name": "quantization",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["none", "awq_marlin", "gptq_marlin"]},
+            "reference_value": "none"
+          },
+          {
+            "name": "dtype",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["bfloat16", "half"]},
+            "reference_value": "bfloat16"
+          },
+          {
+            "name": "enforce_eager",
+            "group_id": "execution_mode",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": false
+          },
+          {
+            "name": "disable_cascade_attn",
+            "group_id": "attention_path",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "tensor_parallel_size",
+            "bo_name": "tp",
+            "group_id": "parallel_topology",
+            "decision": "fixed",
+            "fixed_value": 1,
+            "reference_value": 1
+          },
+          {
+            "name": "data_parallel_size",
+            "group_id": "parallel_topology",
+            "decision": "fixed",
+            "fixed_value": 2,
+            "reference_value": 2
+          },
+          {
+            "name": "decode_context_parallel_size",
+            "group_id": "parallel_topology",
+            "decision": "fixed",
+            "fixed_value": 1,
+            "reference_value": 1,
+            "depends_on": ["tensor_parallel_size"]
+          },
+          {
+            "name": "cp_kv_cache_interleave_size",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "integer", "values": [1, 16]},
+            "reference_value": 1,
+            "activation_conditions": ["decode_context_parallel_size > 1"],
+            "depends_on": ["decode_context_parallel_size", "tensor_parallel_size"]
+          },
+          {
+            "name": "data_parallel_backend",
+            "group_id": "parallel_topology",
+            "decision": "fixed",
+            "fixed_value": "mp",
+            "reference_value": "mp"
+          },
+          {
+            "name": "disable_nccl_for_dp_synchronization",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": false,
+            "activation_conditions": ["data_parallel_size > 1"],
+            "depends_on": ["data_parallel_size"]
+          },
+          {
+            "name": "block_size",
+            "group_id": "cache_layout",
+            "decision": "tune",
+            "domain": {"kind": "integer", "values": [16, 32, 64]},
+            "reference_value": 16
+          },
+          {
+            "name": "gpu_memory_utilization",
+            "group_id": "cache_layout",
+            "decision": "tune",
+            "domain": {"kind": "float", "lower": 0.75, "upper": 0.95, "scale": "linear", "granularity": "any_float"},
+            "reference_value": 0.9
+          },
+          {
+            "name": "kv_cache_dtype",
+            "group_id": "kv_cache_precision",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["bfloat16", "float16", "fp8_e4m3", "fp8_e5m2", "int8_per_token_head", "fp8_per_token_head"]},
+            "reference_value": "bfloat16"
+          },
+          {
+            "name": "enable_prefix_caching",
+            "group_id": "prefix_caching",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "prefix_caching_hash_algo",
+            "group_id": "prefix_caching",
+            "decision": "conditional",
+            "domain": {"kind": "categorical", "values": ["sha256", "sha256_cbor"]},
+            "reference_value": "sha256",
+            "activation_conditions": ["enable_prefix_caching == true"],
+            "depends_on": ["enable_prefix_caching"]
+          },
+          {
+            "name": "max_num_batched_tokens",
+            "group_id": "scheduler_capacity",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 1024, "upper": 32768, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 4096
+          },
+          {
+            "name": "max_num_seqs",
+            "group_id": "scheduler_capacity",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 8, "upper": 512, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 64
+          },
+          {
+            "name": "async_scheduling",
+            "group_id": "scheduler_policy",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": false,
+            "depends_on": ["data_parallel_backend"]
+          },
+          {
+            "name": "scheduler_reserve_full_isl",
+            "group_id": "scheduler_policy",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true,
+            "depends_on": ["enable_chunked_prefill"]
+          },
+          {
+            "name": "chunked_prefill",
+            "bo_name": "enable_chunked_prefill",
+            "group_id": "chunked_prefill",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "long_prefill_token_threshold",
+            "group_id": "chunked_prefill",
+            "decision": "conditional",
+            "domain": {"kind": "integer", "lower": 0, "upper": 3322, "scale": "linear", "granularity": "any_integer"},
+            "reference_value": 0,
+            "activation_conditions": ["chunked_prefill == true"],
+            "depends_on": ["chunked_prefill"]
+          },
+          {
+            "name": "cacheblend_mode",
+            "group_id": "cacheblend",
+            "decision": "fixed",
+            "fixed_value": "on",
+            "reference_value": "on"
+          },
+          {
+            "name": "cacheblend_allow_prefix_caching",
+            "group_id": "cacheblend",
+            "decision": "fixed",
+            "fixed_value": false,
+            "reference_value": false
+          },
+          {
+            "name": "lmcache_chunk_size",
+            "group_id": "cacheblend",
+            "decision": "conditional",
+            "domain": {"kind": "integer", "lower": 8, "upper": 512, "scale": "log", "base": 2, "granularity": "powers_of_base"},
+            "reference_value": 16,
+            "activation_conditions": ["cacheblend_mode == on"],
+            "depends_on": ["cacheblend_mode"]
+          },
+          {
+            "name": "cacheblend_blend_min_tokens",
+            "group_id": "cacheblend",
+            "decision": "conditional",
+            "domain": {"kind": "integer", "lower": 4, "upper": 512, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 16,
+            "activation_conditions": ["cacheblend_mode == on"],
+            "depends_on": ["cacheblend_mode"]
+          },
+          {
+            "name": "cacheblend_blend_check_layers",
+            "group_id": "cacheblend",
+            "decision": "conditional",
+            "domain": {"kind": "categorical", "values": ["0", "1"]},
+            "reference_value": "1",
+            "activation_conditions": ["cacheblend_mode == \"on\""],
+            "depends_on": ["cacheblend_mode"]
+          },
+          {
+            "name": "cacheblend_blend_recompute_ratios",
+            "group_id": "cacheblend",
+            "decision": "fixed",
+            "fixed_value": "0.15",
+            "reference_value": "0.15"
+          },
+          {
+            "name": "model_impl",
+            "group_id": "runtime",
+            "decision": "fixed",
+            "fixed_value": "vllm",
+            "reference_value": "vllm"
+          }
+        ],
+        "joint_constraints": [
+          {
+            "id": "cacheblend_compatibility",
+            "parameters": ["cacheblend_mode", "chunked_prefill", "enable_prefix_caching", "dtype", "kv_cache_dtype", "block_size", "enforce_eager"],
+            "expression": "cacheblend_mode == on implies chunked_prefill == false and enable_prefix_caching == false and uncompressed KV dtype matches model dtype and block_size >= 16 and enforce_eager == true",
+            "require_enforce_eager": true
+          },
+          {
+            "id": "full_prefill_token_budget",
+            "parameters": ["chunked_prefill", "max_num_batched_tokens"],
+            "max_model_len": 4096,
+            "expression": "chunked_prefill == false implies max_num_batched_tokens >= max_model_len"
+          },
+          {
+            "id": "gpu_topology_budget",
+            "parameters": ["tensor_parallel_size", "data_parallel_size"],
+            "expression": "tensor_parallel_size * data_parallel_size == 2"
+          },
+          {
+            "id": "dcp_divides_tp",
+            "parameters": ["decode_context_parallel_size", "tensor_parallel_size"],
+            "expression": "tensor_parallel_size % decode_context_parallel_size == 0"
+          },
+          {
+            "id": "prefix_hash_parent",
+            "parameters": ["enable_prefix_caching", "prefix_caching_hash_algo"],
+            "expression": "prefix_caching_hash_algo is active only when enable_prefix_caching == true"
+          },
+          {
+            "id": "async_executor_compatibility",
+            "parameters": ["data_parallel_backend", "async_scheduling"],
+            "expression": "data_parallel_backend == 'ray' implies async_scheduling == false unless VLLM_USE_RAY_V2_EXECUTOR_BACKEND == 1"
+          }
+        ],
+        "provenance": {
+          "history": "my_storage/hotpotqa_repair50_experience_tp1dp2_mp_on_20260918/candidate_optimizer/bo_history.json",
+          "domain": "my_storage/hotpotqa_repair50_experience_tp1dp2_mp_on_20260918/range_selection/bo_domain_spec.json",
+          "domain_sha256": "04ce3215446c717710de2bbd257f975f6f1e8d03283198278a2d6f91309830bb"
+        }
+      },
+      "Llama-3.1-8B-Instruct": {
+        "parameters": [
+          {
+            "name": "quantization",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["none", "awq_marlin", "gptq_marlin"]},
+            "reference_value": "none"
+          },
+          {
+            "name": "dtype",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["bfloat16", "half"]},
+            "reference_value": "bfloat16"
+          },
+          {
+            "name": "enforce_eager",
+            "group_id": "execution_mode",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": false
+          },
+          {
+            "name": "disable_cascade_attn",
+            "group_id": "attention_path",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "tensor_parallel_size",
+            "bo_name": "tp",
+            "group_id": "parallel_topology",
+            "decision": "composite",
+            "domain": {"kind": "integer", "values": [1, 2]},
+            "reference_value": 2,
+            "depends_on": ["data_parallel_size"],
+            "composite_group": "tp_dp_topology"
+          },
+          {
+            "name": "data_parallel_size",
+            "group_id": "parallel_topology",
+            "decision": "composite",
+            "domain": {"kind": "integer", "values": [1, 2]},
+            "reference_value": 1,
+            "depends_on": ["tensor_parallel_size"],
+            "composite_group": "tp_dp_topology"
+          },
+          {
+            "name": "decode_context_parallel_size",
+            "group_id": "parallel_topology",
+            "decision": "fixed",
+            "fixed_value": 1,
+            "reference_value": 1,
+            "depends_on": ["tensor_parallel_size"]
+          },
+          {
+            "name": "cp_kv_cache_interleave_size",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "integer", "values": [1, 16]},
+            "reference_value": 1,
+            "activation_conditions": ["decode_context_parallel_size > 1"],
+            "depends_on": ["decode_context_parallel_size", "tensor_parallel_size"]
+          },
+          {
+            "name": "data_parallel_backend",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "categorical", "values": ["mp", "ray"]},
+            "reference_value": "mp",
+            "activation_conditions": ["data_parallel_size > 1"],
+            "depends_on": ["data_parallel_size"]
+          },
+          {
+            "name": "disable_nccl_for_dp_synchronization",
+            "group_id": "parallel_topology",
+            "decision": "conditional",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": false,
+            "activation_conditions": ["data_parallel_size > 1"],
+            "depends_on": ["data_parallel_size"]
+          },
+          {
+            "name": "block_size",
+            "group_id": "cache_layout",
+            "decision": "tune",
+            "domain": {"kind": "integer", "values": [16, 32, 64]},
+            "reference_value": 16
+          },
+          {
+            "name": "gpu_memory_utilization",
+            "group_id": "cache_layout",
+            "decision": "tune",
+            "domain": {"kind": "float", "lower": 0.75, "upper": 0.95, "scale": "linear", "granularity": "any_float"},
+            "reference_value": 0.9
+          },
+          {
+            "name": "kv_cache_dtype",
+            "group_id": "kv_cache_precision",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["bfloat16", "float16", "fp8_e4m3", "fp8_e5m2", "int8_per_token_head", "fp8_per_token_head"]},
+            "reference_value": "bfloat16"
+          },
+          {
+            "name": "enable_prefix_caching",
+            "group_id": "prefix_caching",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "prefix_caching_hash_algo",
+            "group_id": "prefix_caching",
+            "decision": "conditional",
+            "domain": {"kind": "categorical", "values": ["sha256", "sha256_cbor"]},
+            "reference_value": "sha256",
+            "activation_conditions": ["enable_prefix_caching == true"],
+            "depends_on": ["enable_prefix_caching"]
+          },
+          {
+            "name": "max_num_batched_tokens",
+            "group_id": "scheduler_capacity",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 1024, "upper": 32768, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 4096
+          },
+          {
+            "name": "max_num_seqs",
+            "group_id": "scheduler_capacity",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 8, "upper": 512, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 64
+          },
+          {
+            "name": "async_scheduling",
+            "group_id": "scheduler_policy",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": false,
+            "depends_on": ["data_parallel_backend"]
+          },
+          {
+            "name": "scheduler_reserve_full_isl",
+            "group_id": "scheduler_policy",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true,
+            "depends_on": ["enable_chunked_prefill"]
+          },
+          {
+            "name": "chunked_prefill",
+            "bo_name": "enable_chunked_prefill",
+            "group_id": "chunked_prefill",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "long_prefill_token_threshold",
+            "group_id": "chunked_prefill",
+            "decision": "conditional",
+            "domain": {"kind": "integer", "lower": 0, "upper": 3322, "scale": "linear", "granularity": "any_integer"},
+            "reference_value": 0,
+            "activation_conditions": ["chunked_prefill == true"],
+            "depends_on": ["chunked_prefill"]
+          },
+          {
+            "name": "cacheblend_mode",
+            "group_id": "cacheblend",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["on", "off"]},
+            "reference_value": "off"
+          },
+          {
+            "name": "cacheblend_allow_prefix_caching",
+            "group_id": "cacheblend",
+            "decision": "fixed",
+            "fixed_value": false,
+            "reference_value": false
+          },
+          {
+            "name": "lmcache_chunk_size",
+            "group_id": "cacheblend",
+            "decision": "conditional",
+            "domain": {"kind": "integer", "lower": 8, "upper": 512, "scale": "log", "base": 2, "granularity": "powers_of_base"},
+            "reference_value": 16,
+            "activation_conditions": ["cacheblend_mode == on"],
+            "depends_on": ["cacheblend_mode"]
+          },
+          {
+            "name": "cacheblend_blend_min_tokens",
+            "group_id": "cacheblend",
+            "decision": "conditional",
+            "domain": {"kind": "integer", "lower": 4, "upper": 512, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 16,
+            "activation_conditions": ["cacheblend_mode == on"],
+            "depends_on": ["cacheblend_mode"]
+          },
+          {
+            "name": "cacheblend_blend_check_layers",
+            "group_id": "cacheblend",
+            "decision": "conditional",
+            "domain": {"kind": "categorical", "values": ["0", "1"]},
+            "reference_value": "1",
+            "activation_conditions": ["cacheblend_mode == \"on\""],
+            "depends_on": ["cacheblend_mode"]
+          },
+          {
+            "name": "cacheblend_blend_recompute_ratios",
+            "group_id": "cacheblend",
+            "decision": "fixed",
+            "fixed_value": "0.15",
+            "reference_value": "0.15"
+          }
+        ],
+        "joint_constraints": [
+          {
+            "id": "cacheblend_compatibility",
+            "parameters": ["cacheblend_mode", "chunked_prefill", "enable_prefix_caching", "dtype", "kv_cache_dtype", "block_size", "enforce_eager"],
+            "expression": "cacheblend_mode == on implies chunked_prefill == false and enable_prefix_caching == false and uncompressed KV dtype matches model dtype and block_size >= 16 and enforce_eager == true",
+            "require_enforce_eager": true
+          },
+          {
+            "id": "full_prefill_token_budget",
+            "parameters": ["chunked_prefill", "max_num_batched_tokens"],
+            "max_model_len": 4096,
+            "expression": "chunked_prefill == false implies max_num_batched_tokens >= max_model_len"
+          },
+          {
+            "id": "gpu_topology_budget",
+            "parameters": ["tensor_parallel_size", "data_parallel_size"],
+            "expression": "tensor_parallel_size * data_parallel_size == 2"
+          },
+          {
+            "id": "dcp_divides_tp",
+            "parameters": ["decode_context_parallel_size", "tensor_parallel_size"],
+            "expression": "tensor_parallel_size % decode_context_parallel_size == 0"
+          },
+          {
+            "id": "prefix_hash_parent",
+            "parameters": ["enable_prefix_caching", "prefix_caching_hash_algo"],
+            "expression": "prefix_caching_hash_algo is active only when enable_prefix_caching == true"
+          },
+          {
+            "id": "async_executor_compatibility",
+            "parameters": ["data_parallel_backend", "async_scheduling"],
+            "expression": "data_parallel_backend == 'ray' implies async_scheduling == false unless VLLM_USE_RAY_V2_EXECUTOR_BACKEND == 1"
+          }
+        ],
+        "provenance": {
+          "history": "my_storage/llama31_hotpotqa_repairbo50_fresh_em84_20261020T125950Z/hotpotqa/candidate_optimizer/bo_history.json",
+          "domain": "my_storage/llama31_mmqa_hotpot_repairbo50_20261020T0035/hotpotqa/inputs/domain.json",
+          "domain_sha256": "3579810179d008a58e2c9f82bfdc2b25bc2c8725dfae5ef1f4ee69429e466722"
+        }
+      }
+    },
+    "cnn_dailymail": {
+      "Qwen2-7B-Instruct": {
+        "parameters": [
+          {
+            "name": "quantization",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["none", "awq_marlin", "gptq_marlin"]},
+            "reference_value": "none"
+          },
+          {
+            "name": "dtype",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["bfloat16", "half"]},
+            "reference_value": "bfloat16"
+          },
+          {
+            "name": "kv_cache_dtype",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["bfloat16", "float16", "fp8_e4m3", "fp8_e5m2", "int8_per_token_head", "fp8_per_token_head"]},
+            "reference_value": "bfloat16"
+          },
+          {
+            "name": "tensor_parallel_size",
+            "bo_name": "tp",
+            "group_id": "execution",
+            "decision": "fixed",
+            "fixed_value": 1,
+            "reference_value": 1
+          },
+          {
+            "name": "enforce_eager",
+            "group_id": "execution",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [true, false]},
+            "reference_value": true
+          },
+          {
+            "name": "disable_custom_all_reduce",
+            "group_id": "execution",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [true, false]},
+            "reference_value": true
+          },
+          {
+            "name": "block_size",
+            "group_id": "execution",
+            "decision": "tune",
+            "domain": {"kind": "integer", "values": [16, 32, 64]},
+            "reference_value": 16
+          },
+          {
+            "name": "gpu_memory_utilization",
+            "group_id": "scheduler",
+            "decision": "tune",
+            "domain": {"kind": "float", "lower": 0.75, "upper": 0.95, "scale": "linear", "granularity": "any_float"},
+            "reference_value": 0.85
+          },
+          {
+            "name": "max_num_seqs",
+            "group_id": "scheduler",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 64, "upper": 4096, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 64
+          },
+          {
+            "name": "max_num_batched_tokens",
+            "group_id": "scheduler",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 512, "upper": 32768, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 2048
+          },
+          {
+            "name": "enable_chunked_prefill",
+            "group_id": "scheduler",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "enable_prefix_caching",
+            "group_id": "cache_policy",
+            "decision": "fixed",
+            "fixed_value": true,
+            "reference_value": true
+          },
+          {
+            "name": "data_parallel_size",
+            "group_id": "parallel_topology",
+            "decision": "fixed",
+            "fixed_value": 2,
+            "reference_value": 2,
+            "depends_on": ["tensor_parallel_size"],
+            "composite_group": "tp_dp_topology"
+          },
+          {
+            "name": "speculative_method",
+            "group_id": "speculative_decoding",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["none", "ngram"]},
+            "reference_value": "none"
+          },
+          {
+            "name": "num_speculative_tokens",
+            "group_id": "speculative_decoding",
+            "decision": "conditional",
+            "domain": {"kind": "integer", "values": [2, 3, 4, 5, 6, 7, 8]},
+            "reference_value": 2,
+            "activation_conditions": ["speculative_method == 'ngram'"]
+          }
+        ],
+        "joint_constraints": [
+          {
+            "id": "representation_template"
+          },
+          {
+            "id": "full_prefill_token_budget",
+            "max_model_len": 6144
+          },
+          {
+            "id": "gpu_topology_budget",
+            "parameters": ["tensor_parallel_size", "data_parallel_size"],
+            "expression": "tensor_parallel_size * data_parallel_size == 2"
+          }
+        ],
+        "provenance": {
+          "history": "my_storage/cnn_dailymail_repairbo50_dp2_prefix_on_history_burst4_20260925/candidate_optimizer/bo_history.json",
+          "domain": "my_storage/cnn_dailymail_repairbo50_dp2_prefix_on_history_burst4_20260925/domain.json",
+          "domain_sha256": "85dac814642055e9a84a4c896d3929f8954f1ddc1a257745962b8dbf1b6a66a2"
+        }
+      },
+      "Llama-3.1-8B-Instruct": {
+        "parameters": [
+          {
+            "name": "quantization",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["none", "awq_marlin", "gptq_marlin"]},
+            "reference_value": "none"
+          },
+          {
+            "name": "dtype",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["bfloat16", "half"]},
+            "reference_value": "bfloat16"
+          },
+          {
+            "name": "kv_cache_dtype",
+            "group_id": "model_representation",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["bfloat16", "float16", "fp8_e4m3", "fp8_e5m2", "int8_per_token_head", "fp8_per_token_head"]},
+            "reference_value": "bfloat16"
+          },
+          {
+            "name": "tensor_parallel_size",
+            "bo_name": "tp",
+            "group_id": "execution",
+            "decision": "composite",
+            "domain": {"kind": "integer", "values": [1, 2]},
+            "reference_value": 2,
+            "depends_on": ["data_parallel_size"],
+            "composite_group": "tp_dp_topology"
+          },
+          {
+            "name": "enforce_eager",
+            "group_id": "execution",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [true, false]},
+            "reference_value": true
+          },
+          {
+            "name": "disable_custom_all_reduce",
+            "group_id": "execution",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [true, false]},
+            "reference_value": true
+          },
+          {
+            "name": "block_size",
+            "group_id": "execution",
+            "decision": "tune",
+            "domain": {"kind": "integer", "values": [16, 32, 64]},
+            "reference_value": 16
+          },
+          {
+            "name": "gpu_memory_utilization",
+            "group_id": "scheduler",
+            "decision": "tune",
+            "domain": {"kind": "float", "lower": 0.75, "upper": 0.95, "scale": "linear", "granularity": "any_float"},
+            "reference_value": 0.85
+          },
+          {
+            "name": "max_num_seqs",
+            "group_id": "scheduler",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 64, "upper": 4096, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 32
+          },
+          {
+            "name": "max_num_batched_tokens",
+            "group_id": "scheduler",
+            "decision": "tune",
+            "domain": {"kind": "integer", "lower": 512, "upper": 32768, "scale": "log", "base": 2, "granularity": "any_integer"},
+            "reference_value": 2048
+          },
+          {
+            "name": "enable_chunked_prefill",
+            "group_id": "scheduler",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [false, true]},
+            "reference_value": true
+          },
+          {
+            "name": "enable_prefix_caching",
+            "group_id": "cache_policy",
+            "decision": "tune",
+            "domain": {"kind": "boolean", "values": [true, false]},
+            "reference_value": false
+          },
+          {
+            "name": "data_parallel_size",
+            "group_id": "parallel_topology",
+            "decision": "composite",
+            "domain": {"kind": "integer", "values": [1, 2]},
+            "reference_value": 1,
+            "depends_on": ["tensor_parallel_size"],
+            "composite_group": "tp_dp_topology"
+          },
+          {
+            "name": "speculative_method",
+            "group_id": "speculative_decoding",
+            "decision": "tune",
+            "domain": {"kind": "categorical", "values": ["none", "ngram"]},
+            "reference_value": "none"
+          },
+          {
+            "name": "num_speculative_tokens",
+            "group_id": "speculative_decoding",
+            "decision": "conditional",
+            "domain": {"kind": "integer", "values": [2, 3, 4, 5, 6, 7, 8]},
+            "reference_value": 2,
+            "activation_conditions": ["speculative_method == 'ngram'"]
+          }
+        ],
+        "joint_constraints": [
+          {
+            "id": "representation_template"
+          },
+          {
+            "id": "full_prefill_token_budget",
+            "max_model_len": 6144
+          },
+          {
+            "id": "gpu_topology_budget",
+            "parameters": ["tensor_parallel_size", "data_parallel_size"],
+            "expression": "tensor_parallel_size * data_parallel_size == 2"
+          }
+        ],
+        "provenance": {
+          "history": "my_storage/llama31_cnn_repairbo50_qwen_space_len6144_20261020/candidate_optimizer/bo_history.json",
+          "domain": "my_storage/llama31_cnn_repairbo50_qwen_space_len6144_20261020/inputs/domain.json",
+          "domain_sha256": "4a917f775edb3bede4f2124b572a7f2edeaafb4a863a0e563f827ffdb39d51ad"
+        }
+      }
+    }
+  },
+  "selection_source": "my_storage/experiment_summaries/two_models_four_workloads_20261024/results.json",
+  "selection_policy": "Exact executable domains of the eight RepairBO runs in the existing end-to-end comparison; no bounds, categories, activation conditions or joint constraints changed."
+}

@@ -1,0 +1,630 @@
+{
+  "schema_version": 1,
+  "catalog_id": "mechanism_interactions.v1",
+  "created_at": "2026-09-21",
+  "scope": {
+    "engine": "vllm-0.20.0",
+    "mechanisms": [
+      "cacheblend_mode",
+      "enable_prefix_caching",
+      "chunked_prefill",
+      "quantization",
+      "dtype",
+      "kv_cache_dtype",
+      "speculative_method"
+    ],
+    "purpose": "机制交互知识，不包含筛选动作或收益评分"
+  },
+  "semantics": {
+    "missing_relation": "not_listed_as_obvious_interaction_not_proven_independent",
+    "performance_relations": "先验作用路径；是否活跃取决于 workload，不预设收益方向",
+    "hard_links": "仅在 relation.scope 和 when 同时满足时适用",
+    "allowed_tuples": "适用域内列出的联合合法取值，不是任意两列独立取值集合",
+    "normalization": {
+      "dtype": {
+        "float16": "half"
+      },
+      "speculative_method": {
+        "null": "none"
+      }
+    },
+    "out_of_scope": "不是完整运行合法性验证器；其他参数约束仍以实现为准"
+  },
+  "sources": {
+    "space": {
+      "path": "agents/tuning/candidate_optimizer/src/services/engine/space.py",
+      "locator": "FixedSearchSpace.validate: representation_template / cacheblend_compatibility"
+    },
+    "alignment": {
+      "path": "agents/tuning/knob_selection/baseline_only/combination_space.py",
+      "locator": "apply_measured_runtime_constraints"
+    },
+    "scheduler": {
+      "path": "vllm-0.20.0/vllm/v1/core/sched/scheduler.py",
+      "locator": "Scheduler.schedule: cached tokens, remaining prefill tokens, token_budget"
+    },
+    "kv_size": {
+      "path": "vllm-0.20.0/vllm/v1/kv_cache_interface.py",
+      "locator": "KV cache page size calculation using get_dtype_size"
+    },
+    "memory": {
+      "path": "vllm-0.20.0/vllm/v1/worker/gpu_worker.py",
+      "locator": "available_kv_cache_memory_bytes: requested memory minus non_kv_cache_memory"
+    },
+    "flock": {
+      "path": "explain_add/flock_cacheblend_execution.md",
+      "locator": "sections 5–8: segmented tokenization and token-ID request path"
+    },
+    "movies_dependencies": {
+      "path": "my_storage/movies_combination_screening_20260916/inputs/dependencies.json",
+      "locator": "quantized_kv_triton"
+    },
+    "user_prior": {
+      "kind": "user_prior",
+      "locator": "本次会话：仅记录明显性能交互；保留 CacheBlend–quantization；speculative decoding 暂按弱交互处理。"
+    }
+  },
+  "mechanisms": {
+    "cacheblend_mode": {
+      "hard_link_ids": [
+        "hard.cacheblend.chunked",
+        "hard.cacheblend.prefix",
+        "hard.cacheblend.precision",
+        "hard.cacheblend.eager"
+      ],
+      "performance_interaction_ids": [
+        "perf.cacheblend.quantization"
+      ],
+      "hard_link_neighbors": [
+        "chunked_prefill",
+        "dtype",
+        "enable_prefix_caching",
+        "kv_cache_dtype"
+      ],
+      "performance_neighbors": [
+        "quantization"
+      ]
+    },
+    "enable_prefix_caching": {
+      "hard_link_ids": [
+        "hard.cacheblend.prefix"
+      ],
+      "performance_interaction_ids": [
+        "perf.prefix.chunked",
+        "perf.prefix.kv_dtype"
+      ],
+      "hard_link_neighbors": [
+        "cacheblend_mode"
+      ],
+      "performance_neighbors": [
+        "chunked_prefill",
+        "kv_cache_dtype"
+      ]
+    },
+    "chunked_prefill": {
+      "hard_link_ids": [
+        "hard.cacheblend.chunked"
+      ],
+      "performance_interaction_ids": [
+        "perf.prefix.chunked"
+      ],
+      "hard_link_neighbors": [
+        "cacheblend_mode"
+      ],
+      "performance_neighbors": [
+        "enable_prefix_caching"
+      ]
+    },
+    "quantization": {
+      "hard_link_ids": [
+        "hard.quantization.dtype"
+      ],
+      "performance_interaction_ids": [
+        "perf.cacheblend.quantization",
+        "perf.quantization.kv_dtype"
+      ],
+      "hard_link_neighbors": [
+        "dtype"
+      ],
+      "performance_neighbors": [
+        "cacheblend_mode",
+        "kv_cache_dtype"
+      ]
+    },
+    "dtype": {
+      "hard_link_ids": [
+        "hard.cacheblend.precision",
+        "hard.quantization.dtype",
+        "hard.dtype.kv_flash_attn"
+      ],
+      "performance_interaction_ids": [],
+      "hard_link_neighbors": [
+        "cacheblend_mode",
+        "kv_cache_dtype",
+        "quantization"
+      ],
+      "performance_neighbors": []
+    },
+    "kv_cache_dtype": {
+      "hard_link_ids": [
+        "hard.cacheblend.precision",
+        "hard.dtype.kv_flash_attn",
+        "hard.kv.backend_movies"
+      ],
+      "performance_interaction_ids": [
+        "perf.prefix.kv_dtype",
+        "perf.quantization.kv_dtype"
+      ],
+      "hard_link_neighbors": [
+        "cacheblend_mode",
+        "dtype"
+      ],
+      "performance_neighbors": [
+        "enable_prefix_caching",
+        "quantization"
+      ]
+    },
+    "speculative_method": {
+      "hard_link_ids": [],
+      "performance_interaction_ids": [],
+      "hard_link_neighbors": [],
+      "performance_neighbors": [],
+      "prior": {
+        "status": "weak_interaction_working_prior",
+        "source_ids": [
+          "user_prior"
+        ],
+        "description": "当前不预列明显性能交互；不是实测独立性证明，也不能推广为所有投机方法在所有环境下均无交互。"
+      }
+    }
+  },
+  "relations": [
+    {
+      "id": "hard.cacheblend.chunked",
+      "type": "hard_link",
+      "mechanisms": [
+        "cacheblend_mode",
+        "chunked_prefill"
+      ],
+      "when": {
+        "cacheblend_mode": [
+          "on"
+        ]
+      },
+      "scope": {
+        "implementation": "repository_frozen_domain",
+        "constraint_id": "cacheblend_compatibility"
+      },
+      "description": "当前约束要求 CacheBlend 开启时关闭 chunked prefill。",
+      "evidence_status": "implementation_constraint",
+      "source_ids": [
+        "space"
+      ],
+      "requires": {
+        "chunked_prefill": [
+          false
+        ]
+      }
+    },
+    {
+      "id": "hard.cacheblend.prefix",
+      "type": "hard_link",
+      "mechanisms": [
+        "cacheblend_mode",
+        "enable_prefix_caching"
+      ],
+      "when": {
+        "cacheblend_mode": [
+          "on"
+        ]
+      },
+      "scope": {
+        "implementation": "repository_frozen_domain",
+        "constraint_id": "cacheblend_compatibility",
+        "constraint_options": {
+          "allow_prefix_caching": false
+        },
+        "option_default": false
+      },
+      "description": "仅在 allow_prefix_caching 未开启时要求关闭原生 prefix caching。",
+      "evidence_status": "implementation_constraint",
+      "source_ids": [
+        "space"
+      ],
+      "requires": {
+        "enable_prefix_caching": [
+          false
+        ]
+      }
+    },
+    {
+      "id": "hard.cacheblend.precision",
+      "type": "hard_link",
+      "mechanisms": [
+        "cacheblend_mode",
+        "dtype",
+        "kv_cache_dtype"
+      ],
+      "when": {
+        "cacheblend_mode": [
+          "on"
+        ]
+      },
+      "scope": {
+        "implementation": "repository_frozen_domain",
+        "constraint_id": "cacheblend_compatibility",
+        "model_dtype_domain": [
+          "bfloat16",
+          "half"
+        ]
+      },
+      "description": "当前 FP16/BF16 域内要求未压缩 KV 与模型 dtype 匹配；这是三元约束，不拆成无条件的两两约束。",
+      "evidence_status": "implementation_constraint",
+      "source_ids": [
+        "space"
+      ],
+      "allowed_tuples": [
+        {
+          "dtype": "bfloat16",
+          "kv_cache_dtype": "bfloat16"
+        },
+        {
+          "dtype": "half",
+          "kv_cache_dtype": "float16"
+        }
+      ]
+    },
+    {
+      "id": "hard.quantization.dtype",
+      "type": "hard_link",
+      "mechanisms": [
+        "quantization",
+        "dtype"
+      ],
+      "when": {},
+      "scope": {
+        "implementation": "repository_frozen_domain",
+        "constraint_id": "representation_template",
+        "quantization_domain": [
+          "none",
+          "awq",
+          "gptq",
+          "awq_marlin",
+          "gptq_marlin"
+        ]
+      },
+      "description": "当前组合验证器中的表示模板；不代表所有后端和所有量化方法的通用支持表。",
+      "evidence_status": "implementation_constraint",
+      "source_ids": [
+        "space"
+      ],
+      "allowed_tuples": [
+        {
+          "quantization": "none",
+          "dtype": "bfloat16"
+        },
+        {
+          "quantization": "none",
+          "dtype": "half"
+        },
+        {
+          "quantization": "none",
+          "dtype": "float"
+        },
+        {
+          "quantization": "awq",
+          "dtype": "half"
+        },
+        {
+          "quantization": "gptq",
+          "dtype": "half"
+        },
+        {
+          "quantization": "awq_marlin",
+          "dtype": "half"
+        },
+        {
+          "quantization": "awq_marlin",
+          "dtype": "bfloat16"
+        },
+        {
+          "quantization": "gptq_marlin",
+          "dtype": "half"
+        },
+        {
+          "quantization": "gptq_marlin",
+          "dtype": "bfloat16"
+        }
+      ]
+    },
+    {
+      "id": "hard.dtype.kv_flash_attn",
+      "type": "hard_link",
+      "mechanisms": [
+        "dtype",
+        "kv_cache_dtype"
+      ],
+      "when": {
+        "kv_cache_dtype": [
+          "float16",
+          "bfloat16"
+        ]
+      },
+      "scope": {
+        "resolved_attention_backend": "FLASH_ATTN",
+        "model_dtype_domain": [
+          "bfloat16",
+          "half"
+        ]
+      },
+      "description": "FLASH_ATTN 下的未压缩 KV 精度匹配；不能推广到所有后端或量化 KV。",
+      "evidence_status": "implementation_constraint",
+      "source_ids": [
+        "alignment"
+      ],
+      "allowed_tuples": [
+        {
+          "dtype": "bfloat16",
+          "kv_cache_dtype": "bfloat16"
+        },
+        {
+          "dtype": "half",
+          "kv_cache_dtype": "float16"
+        }
+      ]
+    },
+    {
+      "id": "hard.cacheblend.eager",
+      "type": "hard_link",
+      "mechanisms": [
+        "cacheblend_mode"
+      ],
+      "when": {
+        "cacheblend_mode": [
+          "on"
+        ]
+      },
+      "scope": {
+        "implementation": "repository_frozen_domain",
+        "constraint_id": "cacheblend_compatibility",
+        "constraint_options": {
+          "require_enforce_eager": true
+        },
+        "option_default": false
+      },
+      "description": "只有当前域显式要求 eager 时才生效，不是 CacheBlend 的无条件通用要求。",
+      "evidence_status": "implementation_constraint",
+      "source_ids": [
+        "space"
+      ],
+      "external_parameters": [
+        "enforce_eager"
+      ],
+      "requires": {
+        "enforce_eager": [
+          true
+        ]
+      }
+    },
+    {
+      "id": "hard.kv.backend_movies",
+      "type": "hard_link",
+      "mechanisms": [
+        "kv_cache_dtype"
+      ],
+      "when": {
+        "kv_cache_dtype": [
+          "fp8_e4m3",
+          "fp8_e5m2",
+          "int8_per_token_head",
+          "fp8_per_token_head"
+        ]
+      },
+      "scope": {
+        "experiment": "movies_combination_screening_20260916",
+        "dependency_rule": "quantized_kv_triton"
+      },
+      "description": "该 movies 实验将这些量化 KV 格式联动到 TRITON_ATTN；仅适用于指定实验依赖配置。",
+      "evidence_status": "implementation_constraint",
+      "source_ids": [
+        "movies_dependencies"
+      ],
+      "external_parameters": [
+        "attention_backend"
+      ],
+      "requires": {
+        "attention_backend": [
+          "TRITON_ATTN"
+        ]
+      }
+    },
+    {
+      "id": "perf.cacheblend.quantization",
+      "type": "performance_interaction",
+      "mechanisms": [
+        "cacheblend_mode",
+        "quantization"
+      ],
+      "scope": {
+        "implementation": "vllm-0.20.0_repository_stack",
+        "value_scope": "legal_combinations_only"
+      },
+      "value_conditions": {
+        "cacheblend_mode": [
+          "off",
+          "on"
+        ],
+        "quantization": "legal_values_in_current_domain"
+      },
+      "description": "量化改变 CacheBlend 可避免和需重算的 prefill 成本，改变复用收益与额外开销的平衡。",
+      "interaction_content": {
+        "causal_path": "量化计算效率 → 避免/重算同等 token 的时间价值 → CacheBlend 净收益",
+        "activation_conditions": [
+          "CacheBlend 实际进入复用/重算路径",
+          "比较背景中的量化方法改变相关 prefill 计算成本"
+        ],
+        "possible_outcomes": [
+          "prefill 更快时，可避免计算的时间价值可能下降",
+          "prefill 更慢时，可避免计算的时间价值可能上升"
+        ],
+        "limitations": [
+          "量化不保证加速；方向取决于 kernel 和 workload",
+          "本记录未给出收益数值或已测交互强度"
+        ]
+      },
+      "relevant_workload_signals": [
+        "input_token_length",
+        "segment_token_length",
+        "segment_reuse",
+        "prefill_time_fraction"
+      ],
+      "evidence_status": "mechanism_prior_not_measured_interaction",
+      "source_ids": [
+        "user_prior",
+        "flock",
+        "space"
+      ],
+      "measured_evidence": [],
+      "strength": "potentially_material_when_active",
+      "effect_direction": "context_dependent"
+    },
+    {
+      "id": "perf.prefix.chunked",
+      "type": "performance_interaction",
+      "mechanisms": [
+        "enable_prefix_caching",
+        "chunked_prefill"
+      ],
+      "scope": {
+        "implementation": "vllm-0.20.0_repository_stack",
+        "value_scope": "legal_combinations_only"
+      },
+      "value_conditions": {
+        "enable_prefix_caching": [
+          false,
+          true
+        ],
+        "chunked_prefill": [
+          false,
+          true
+        ]
+      },
+      "description": "前缀命中改变剩余 prefill 工作量，影响 chunked prefill 的分块与调度收益。",
+      "interaction_content": {
+        "causal_path": "prefix 命中 → 剩余 prefill token → token budget 下的分块和调度",
+        "activation_conditions": [
+          "存在实际前缀命中",
+          "命中变化影响调度规模或是否需要分块"
+        ],
+        "weak_conditions": [
+          "几乎无命中",
+          "各背景下剩余 prefill 均很小且调度不受影响"
+        ]
+      },
+      "relevant_workload_signals": [
+        "actual_prefix_cache_hit_tokens",
+        "remaining_prefill_tokens",
+        "concurrent_requests"
+      ],
+      "evidence_status": "mechanism_prior_not_measured_interaction",
+      "source_ids": [
+        "scheduler"
+      ],
+      "measured_evidence": [],
+      "strength": "potentially_material_when_active",
+      "effect_direction": "context_dependent"
+    },
+    {
+      "id": "perf.prefix.kv_dtype",
+      "type": "performance_interaction",
+      "mechanisms": [
+        "enable_prefix_caching",
+        "kv_cache_dtype"
+      ],
+      "scope": {
+        "implementation": "vllm-0.20.0_repository_stack",
+        "value_scope": "legal_combinations_only"
+      },
+      "value_conditions": {
+        "enable_prefix_caching": [
+          false,
+          true
+        ],
+        "kv_cache_dtype": "legal_values_with_different_effective_bytes_per_token"
+      },
+      "description": "KV 格式改变缓存容量，容量受限时影响可驻留前缀和命中。",
+      "interaction_content": {
+        "causal_path": "KV 每 token 字节数 → 可驻留前缀数量 → 命中率和避免的 prefill",
+        "activation_conditions": [
+          "KV 缓存容量或淘汰限制前缀复用"
+        ],
+        "weak_conditions": [
+          "缓存容量充足且无相关淘汰"
+        ],
+        "limitations": [
+          "BF16 与 FP16 同为两字节，不能据此声称容量减半",
+          "本条只记录容量路径，不把所有格式转换和 kernel 差异泛化为强交互"
+        ]
+      },
+      "relevant_workload_signals": [
+        "prefix_reuse_distance",
+        "cache_eviction",
+        "kv_cache_occupancy"
+      ],
+      "evidence_status": "mechanism_prior_not_measured_interaction",
+      "source_ids": [
+        "kv_size",
+        "scheduler"
+      ],
+      "measured_evidence": [],
+      "strength": "potentially_material_when_active",
+      "effect_direction": "context_dependent"
+    },
+    {
+      "id": "perf.quantization.kv_dtype",
+      "type": "performance_interaction",
+      "mechanisms": [
+        "quantization",
+        "kv_cache_dtype"
+      ],
+      "scope": {
+        "implementation": "vllm-0.20.0_repository_stack",
+        "value_scope": "legal_combinations_only"
+      },
+      "value_conditions": {
+        "quantization": "legal_values_with_different_weight_memory",
+        "kv_cache_dtype": "legal_values_with_different_effective_bytes_per_token"
+      },
+      "description": "权重量化与 KV 格式共同改变显存容量瓶颈，可能共同影响可用并发。",
+      "interaction_content": {
+        "causal_path": "权重占用影响 KV 可用预算；KV 格式影响每请求占用 → 容量瓶颈和可容纳并发",
+        "activation_conditions": [
+          "权重节省会转化为可用 KV 预算",
+          "KV 容量限制并发或造成抢占"
+        ],
+        "weak_conditions": [
+          "并发和显存均不受容量限制"
+        ],
+        "limitations": [
+          "权重与 KV 字节减少可加，不等于端到端性能一定存在明显交互",
+          "只有容量瓶颈影响运行行为时列为活跃交互"
+        ]
+      },
+      "relevant_workload_signals": [
+        "weight_memory_bytes",
+        "available_kv_cache_memory_bytes",
+        "kv_cache_occupancy",
+        "preemption",
+        "concurrent_requests"
+      ],
+      "evidence_status": "mechanism_prior_not_measured_interaction",
+      "source_ids": [
+        "memory",
+        "kv_size"
+      ],
+      "measured_evidence": [],
+      "strength": "potentially_material_when_active",
+      "effect_direction": "context_dependent"
+    }
+  ]
+}

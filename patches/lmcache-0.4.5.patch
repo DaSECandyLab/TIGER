@@ -1,0 +1,72 @@
+diff --git a/lmcache/integration/vllm/utils.py b/lmcache/integration/vllm/utils.py
+--- a/lmcache/integration/vllm/utils.py
++++ b/lmcache/integration/vllm/utils.py
+@@ -359,7 +359,12 @@
+     num_gpus = torch_dev.device_count()
+     if global_world_size <= num_gpus:
+         # single node case
+-        return parallel_config.rank, parallel_config.world_size
++        # vLLM binds the worker device before constructing its KV connector.
++        # rank is relative to the TP/PP group and excludes the DP offset; for
++        # TP=1, both DP replicas have rank=0 despite using different GPUs.
++        # Respect the already-bound, process-visible device (also valid when
++        # CUDA_VISIBLE_DEVICES remaps physical GPU ordinals).
++        return torch_dev.current_device(), parallel_config.world_size
+     else:
+         tp_size = parallel_config.tensor_parallel_size
+         pp_size = parallel_config.pipeline_parallel_size
+diff --git a/lmcache/v1/cache_engine.py b/lmcache/v1/cache_engine.py
+--- a/lmcache/v1/cache_engine.py
++++ b/lmcache/v1/cache_engine.py
+@@ -1044,7 +1044,9 @@
+         # Without this, pin_count stays at 1 forever and the CPU staging pool
+         # fills up, causing the next retrieve to deadlock inside allocate().
+         for mem_obj in to_count_down:
+-            if mem_obj.is_pinned:
++            # LocalCPU-backed objects are unpinned later by lookup_unpin().
++            # Unpinning them here causes negative pin_count for layerwise loads.
++            if mem_obj.is_pinned and location != "LocalCPUBackend":
+                 mem_obj.unpin()
+ 
+         retrieved_tokens = torch.sum(ret_mask)
+diff --git a/lmcache/v1/compute/positional_encoding.py b/lmcache/v1/compute/positional_encoding.py
+--- a/lmcache/v1/compute/positional_encoding.py
++++ b/lmcache/v1/compute/positional_encoding.py
+@@ -110,12 +110,15 @@
+ def validate_reverse_correctness(rope, reverse_rope, fused_rope, head_size) -> bool:
+     hidden_dim = head_size * 8
+     num_tokens = 10
++    # The fused kernel requires K and the RoPE cache to share a scalar type.
++    # Test the actual configured precision rather than forcing BF16 for FP16 models.
++    test_dtype = rope.cos_sin_cache.dtype
+ 
+     dumb_q = torch.rand(
+-        (num_tokens, hidden_dim), device=torch_device_type, dtype=torch.bfloat16
++        (num_tokens, hidden_dim), device=torch_device_type, dtype=test_dtype
+     )
+     dumb_k = torch.rand(
+-        (num_tokens, hidden_dim), device=torch_device_type, dtype=torch.bfloat16
++        (num_tokens, hidden_dim), device=torch_device_type, dtype=test_dtype
+     )
+     positions = torch.arange(num_tokens, device=torch_device_type)
+ 
+diff --git a/lmcache/v1/token_database.py b/lmcache/v1/token_database.py
+--- a/lmcache/v1/token_database.py
++++ b/lmcache/v1/token_database.py
+@@ -443,6 +443,7 @@
+ 
+         if self.sep_len == 0 or len(tokens) < self.sep_len:
+             yield tokens
++            return
+ 
+         # Unfold into sliding windows
+         # shape: (num_tokens-sep_len+1, sep_len)
+@@ -519,7 +520,7 @@
+                 if idx > 0:
+                     start_idx += self.sep_len
+                     end_idx += self.sep_len
+-                if start_idx >= num_falses:
++                if start_idx >= num_falses and token_chunk_len > 0:
+                     if make_key:
+                         yield (
+                             start_idx,

@@ -1,0 +1,492 @@
+{
+  "schema_version": 1,
+  "knowledge_base_id": "vllm-0.20.0-external-screening-knowledge-r4",
+  "vllm_version": "0.20.0",
+  "updated_at": "2026-08-23T00:00:00+08:00",
+  "purpose": "Version-scoped facts discovered from official documentation, pinned source, and official project issue records. These facts describe upstream behavior and do not encode SCOOT scenario policy.",
+  "provenance_policy": {
+    "preferred_sources": [
+      "pinned_official_source",
+      "versioned_official_documentation",
+      "official_project_issue"
+    ],
+    "version_pinning_required": true,
+    "issue_evidence_is_supporting_not_authoritative": true
+  },
+  "sources": [
+    {
+      "source_id": "vllm-arg-utils-0.20.0",
+      "source_kind": "pinned_official_source",
+      "title": "vLLM 0.20.0 engine argument validation",
+      "url": "https://github.com/vllm-project/vllm/blob/v0.20.0/vllm/engine/arg_utils.py",
+      "version_scope": "vLLM 0.20.0"
+    },
+    {
+      "source_id": "vllm-model-config-source-0.20.0",
+      "source_kind": "pinned_official_source",
+      "title": "vLLM 0.20.0 model capability checks",
+      "url": "https://github.com/vllm-project/vllm/blob/v0.20.0/vllm/config/model.py",
+      "version_scope": "vLLM 0.20.0"
+    },
+    {
+      "source_id": "vllm-global-config-source-0.20.0",
+      "source_kind": "pinned_official_source",
+      "title": "vLLM 0.20.0 global configuration post-init",
+      "url": "https://github.com/vllm-project/vllm/blob/v0.20.0/vllm/config/vllm.py",
+      "version_scope": "vLLM 0.20.0"
+    },
+    {
+      "source_id": "vllm-kv-cache-utils-source-0.20.0",
+      "source_kind": "pinned_official_source",
+      "title": "vLLM 0.20.0 KV-cache group construction",
+      "url": "https://github.com/vllm-project/vllm/blob/v0.20.0/vllm/v1/core/kv_cache_utils.py",
+      "version_scope": "vLLM 0.20.0"
+    },
+    {
+      "source_id": "vllm-lmcache-connector-source-0.20.0",
+      "source_kind": "pinned_official_source",
+      "title": "vLLM 0.20.0 LMCache connector",
+      "url": "https://github.com/vllm-project/vllm/blob/v0.20.0/vllm/distributed/kv_transfer/kv_connector/v1/lmcache_connector.py",
+      "version_scope": "vLLM 0.20.0"
+    },
+    {
+      "source_id": "vllm-kv-connector-factory-source-0.20.0",
+      "source_kind": "pinned_official_source",
+      "title": "vLLM 0.20.0 KV connector factory HMA validation",
+      "url": "https://github.com/vllm-project/vllm/blob/v0.20.0/vllm/distributed/kv_transfer/kv_connector/factory.py",
+      "version_scope": "vLLM 0.20.0"
+    },
+    {
+      "source_id": "vllm-sleep-mode-0.20.0",
+      "source_kind": "versioned_official_documentation",
+      "title": "vLLM 0.20.0 Sleep Mode",
+      "url": "https://docs.vllm.ai/en/v0.20.0/features/sleep_mode/",
+      "version_scope": "vLLM 0.20.0"
+    },
+    {
+      "source_id": "vllm-parallel-config-0.20.0",
+      "source_kind": "pinned_official_source",
+      "title": "vLLM 0.20.0 ParallelConfig",
+      "url": "https://github.com/vllm-project/vllm/blob/v0.20.0/vllm/config/parallel.py",
+      "version_scope": "vLLM 0.20.0"
+    },
+    {
+      "source_id": "vllm-dbo-0.20.0",
+      "source_kind": "versioned_official_documentation",
+      "title": "vLLM 0.20.0 Dual Batch Overlap",
+      "url": "https://docs.vllm.ai/en/v0.20.0/design/dbo/",
+      "version_scope": "vLLM 0.20.0"
+    },
+    {
+      "source_id": "vllm-custom-allreduce-0.20.0",
+      "source_kind": "pinned_official_source",
+      "title": "vLLM 0.20.0 custom all-reduce implementation",
+      "url": "https://github.com/vllm-project/vllm/blob/v0.20.0/vllm/distributed/device_communicators/custom_all_reduce.py",
+      "version_scope": "vLLM 0.20.0"
+    },
+    {
+      "source_id": "vllm-offload-config-0.20.0",
+      "source_kind": "versioned_official_documentation",
+      "title": "vLLM 0.20.0 weight offload configuration",
+      "url": "https://docs.vllm.ai/en/v0.20.0/api/vllm/config/offload/",
+      "version_scope": "vLLM 0.20.0"
+    },
+    {
+      "source_id": "lmcache-cacheblend-config-issue-2639",
+      "source_kind": "official_project_issue",
+      "title": "LMCache CacheBlend configuration report",
+      "url": "https://github.com/LMCache/LMCache/issues/2639",
+      "version_scope": "LMCache CacheBlend configuration semantics"
+    },
+    {
+      "source_id": "vllm-output-processor-0.20.0",
+      "source_kind": "pinned_official_source",
+      "title": "vLLM 0.20.0 output processor",
+      "url": "https://github.com/vllm-project/vllm/blob/v0.20.0/vllm/v1/engine/output_processor.py",
+      "version_scope": "vLLM 0.20.0"
+    },
+    {
+      "source_id": "vllm-model-config-0.20.0",
+      "source_kind": "versioned_official_documentation",
+      "title": "vLLM 0.20.0 model configuration",
+      "url": "https://docs.vllm.ai/en/v0.20.0/api/vllm/config/model/",
+      "version_scope": "vLLM 0.20.0"
+    },
+    {
+      "source_id": "vllm-speculative-config-0.20.0",
+      "source_kind": "versioned_official_documentation",
+      "title": "vLLM 0.20.0 speculative decoding configuration",
+      "url": "https://docs.vllm.ai/en/v0.20.0/api/vllm/config/speculative/",
+      "version_scope": "vLLM 0.20.0"
+    },
+    {
+      "source_id": "vllm-cache-config-0.20.0",
+      "source_kind": "versioned_official_documentation",
+      "title": "vLLM 0.20.0 cache configuration",
+      "url": "https://docs.vllm.ai/en/v0.20.0/api/vllm/config/cache/",
+      "version_scope": "vLLM 0.20.0"
+    },
+    {
+      "source_id": "vllm-optimization-0.20.0",
+      "source_kind": "versioned_official_documentation",
+      "title": "vLLM 0.20.0 optimization and NUMA guidance",
+      "url": "https://docs.vllm.ai/en/v0.20.0/configuration/optimization/",
+      "version_scope": "vLLM 0.20.0"
+    },
+    {
+      "source_id": "vllm-load-config-source-0.20.0",
+      "source_kind": "pinned_official_source",
+      "title": "vLLM 0.20.0 model weight loading configuration",
+      "url": "https://github.com/vllm-project/vllm/blob/v0.20.0/vllm/config/load.py",
+      "version_scope": "vLLM 0.20.0"
+    }
+  ],
+  "facts": [
+    {
+      "fact_id": "EXT001-concurrent-partial-prefill-unsupported",
+      "parameters": [
+        "max_num_partial_prefills",
+        "max_long_partial_prefills"
+      ],
+      "relation": "supported_domain",
+      "question_types": ["supported_domain"],
+      "statement": "In vLLM 0.20.0, feature validation raises an unsupported-feature error whenever max_num_partial_prefills or max_long_partial_prefills differs from the SchedulerConfig default; concurrent partial prefill therefore has no non-default supported value.",
+      "applicability_when": [
+        "vllm_version == 0.20.0"
+      ],
+      "source_ids": [
+        "vllm-arg-utils-0.20.0"
+      ],
+      "source_locator": "_check_feature_supported, lines around 2153-2159",
+      "confidence": 1.0
+    },
+    {
+      "fact_id": "EXT002-sleep-mode-explicit-control-plane",
+      "parameters": [
+        "enable_sleep_mode"
+      ],
+      "relation": "execution_scope",
+      "question_types": ["execution_scope"],
+      "statement": "Sleep mode enables explicitly invoked sleep and wake transitions that release and restore accelerator resources; enabling the capability does not add a steady-state inference path when no sleep or wake operation is invoked.",
+      "applicability_when": [
+        "sleep/wake APIs are not invoked"
+      ],
+      "source_ids": [
+        "vllm-sleep-mode-0.20.0"
+      ],
+      "source_locator": "Sleep Mode overview and usage",
+      "confidence": 0.99
+    },
+    {
+      "fact_id": "EXT003-hybrid-dp-disabled-when-all-ranks-local",
+      "parameters": [
+        "data_parallel_hybrid_lb"
+      ],
+      "relation": "normalization",
+      "question_types": ["normalization_or_fallback"],
+      "statement": "vLLM 0.20.0 clears data_parallel_hybrid_lb when data_parallel_size_local equals the total data_parallel_size, explicitly treating that topology as a single-node deployment.",
+      "applicability_when": [
+        "data_parallel_size_local == data_parallel_size"
+      ],
+      "source_ids": [
+        "vllm-arg-utils-0.20.0"
+      ],
+      "source_locator": "create_engine_config, lines around 1788-1797",
+      "confidence": 1.0
+    },
+    {
+      "fact_id": "EXT004-dp-child-knobs-require-dp-group",
+      "parameters": [
+        "data_parallel_size",
+        "data_parallel_backend",
+        "disable_nccl_for_dp_synchronization"
+      ],
+      "relation": "parent_gate",
+      "question_types": ["activation_gate"],
+      "statement": "data_parallel_backend selects the data-parallel execution backend and disable_nccl_for_dp_synchronization selects the DP synchronization transport. Their distinct behavior requires an active data-parallel group.",
+      "applicability_when": [
+        "data_parallel_size > 1"
+      ],
+      "source_ids": [
+        "vllm-parallel-config-0.20.0"
+      ],
+      "source_locator": "ParallelConfig data_parallel_backend and disable_nccl_for_dp_synchronization fields",
+      "confidence": 0.98
+    },
+    {
+      "fact_id": "EXT005-dbo-requires-dp-ep-deepep",
+      "parameters": [
+        "enable_dbo",
+        "dbo_decode_token_threshold",
+        "dbo_prefill_token_threshold"
+      ],
+      "relation": "feature_requirements",
+      "question_types": ["activation_gate"],
+      "statement": "vLLM 0.20.0 DBO must run with data_parallel_size greater than one and expert parallelism enabled, and is currently supported only with a DeepEP all-to-all backend.",
+      "applicability_when": [
+        "data_parallel_size > 1",
+        "enable_expert_parallel == true",
+        "all2all_backend is a supported DeepEP backend"
+      ],
+      "source_ids": [
+        "vllm-dbo-0.20.0"
+      ],
+      "source_locator": "Running with DBO",
+      "confidence": 1.0
+    },
+    {
+      "fact_id": "EXT006-custom-allreduce-p2p-fallback",
+      "parameters": [
+        "disable_custom_all_reduce"
+      ],
+      "relation": "platform_normalization",
+      "question_types": ["normalization_or_fallback"],
+      "statement": "The vLLM 0.20.0 custom all-reduce implementation returns without enabling the custom kernel when GPU P2P capability is absent or the P2P test fails; explicitly disabling it then selects the same effective fallback.",
+      "applicability_when": [
+        "GPU P2P capability is absent or the P2P test fails"
+      ],
+      "source_ids": [
+        "vllm-custom-allreduce-0.20.0"
+      ],
+      "source_locator": "CustomAllreduce initialization, GPU P2P guard",
+      "confidence": 1.0
+    },
+    {
+      "fact_id": "EXT007-weight-offload-parent-gate",
+      "parameters": [
+        "offload_backend",
+        "cpu_offload_gb",
+        "cpu_offload_params",
+        "offload_group_size",
+        "offload_num_in_group",
+        "offload_prefetch_step",
+        "offload_params"
+      ],
+      "relation": "parent_gate",
+      "question_types": ["activation_gate"],
+      "statement": "Weight-offload backend, grouping, parameter-selection, and prefetch controls affect execution only when weight offloading is enabled with a positive CPU offload capacity or an active offload configuration.",
+      "applicability_when": [
+        "weight offloading is enabled"
+      ],
+      "source_ids": [
+        "vllm-offload-config-0.20.0"
+      ],
+      "source_locator": "OffloadConfig field documentation",
+      "confidence": 0.97
+    },
+    {
+      "fact_id": "EXT008-cacheblend-children-parent-gated",
+      "parameters": [
+        "cacheblend_mode",
+        "cacheblend_allow_prefix_caching",
+        "lmcache_chunk_size",
+        "cacheblend_blend_min_tokens",
+        "cacheblend_blend_check_layers",
+        "cacheblend_blend_recompute_ratios",
+        "cacheblend_blend_special_str"
+      ],
+      "relation": "parent_gate",
+      "question_types": ["activation_gate"],
+      "statement": "CacheBlend-specific chunking, delimiter, layer-check, and recomputation settings are consumed only when blending is enabled; otherwise the blending-specific settings do not alter execution.",
+      "applicability_when": [
+        "CacheBlend blending is enabled"
+      ],
+      "source_ids": [
+        "lmcache-cacheblend-config-issue-2639"
+      ],
+      "source_locator": "Issue configuration and blending-specific settings",
+      "confidence": 0.85
+    },
+    {
+      "fact_id": "EXT009-ubatching-requires-deepep",
+      "parameters": [
+        "ubatch_size"
+      ],
+      "relation": "backend_requirement",
+      "question_types": ["activation_gate"],
+      "statement": "Microbatch overlap in the vLLM 0.20.0 DBO implementation is supported only with DeepEP; a profile without a DeepEP all-to-all backend cannot exercise a non-default microbatching path.",
+      "applicability_when": [
+        "DeepEP is available and selected"
+      ],
+      "source_ids": [
+        "vllm-dbo-0.20.0"
+      ],
+      "source_locator": "Running with DBO",
+      "confidence": 0.99
+    },
+    {
+      "fact_id": "EXT010-numa-binding-topology-scope",
+      "parameters": [
+        "numa_bind",
+        "numa_bind_nodes",
+        "numa_bind_cpus"
+      ],
+      "relation": "topology_scope",
+      "question_types": ["activation_gate", "scenario_reachability"],
+      "statement": "vLLM NUMA binding maps workers to NUMA-local CPUs and is intended to distinguish locality domains on multi-socket or multi-NUMA systems; the documentation does not create additional node choices on a one-node host.",
+      "applicability_when": [
+        "the host exposes multiple meaningful NUMA locality domains"
+      ],
+      "source_ids": [
+        "vllm-optimization-0.20.0"
+      ],
+      "source_locator": "NUMA binding guidance",
+      "confidence": 0.93
+    },
+    {
+      "fact_id": "EXT011-stream-interval-only-buffers-streaming-output",
+      "parameters": [
+        "stream_interval"
+      ],
+      "relation": "request_mode_gate",
+      "question_types": ["activation_gate", "execution_scope"],
+      "statement": "In vLLM 0.20.0, stream_interval controls buffered token emission for streaming request output. Final-only output bypasses interval-based intermediate emission.",
+      "applicability_when": [
+        "the request consumes streaming output"
+      ],
+      "source_ids": [
+        "vllm-output-processor-0.20.0"
+      ],
+      "source_locator": "RequestOutputCollector and output-kind handling",
+      "confidence": 1.0
+    },
+    {
+      "fact_id": "EXT012-renderer-workers-preprocessing-scope",
+      "parameters": [
+        "renderer_num_workers"
+      ],
+      "relation": "execution_scope",
+      "question_types": ["execution_scope"],
+      "statement": "renderer_num_workers sizes the server-side thread pool used for asynchronous tokenization, chat-template rendering, and multimodal preprocessing rather than model execution kernels.",
+      "applicability_when": [
+        "request preprocessing is part of the optimized objective"
+      ],
+      "source_ids": [
+        "vllm-model-config-0.20.0"
+      ],
+      "source_locator": "renderer_num_workers field",
+      "confidence": 1.0
+    },
+    {
+      "fact_id": "EXT013-speculative-method-and-token-count-schema",
+      "parameters": [
+        "speculative_config",
+        "speculative_method",
+        "num_speculative_tokens"
+      ],
+      "relation": "compound_configuration_schema",
+      "question_types": ["activation_gate", "materialization"],
+      "statement": "SpeculativeConfig.method selects the proposal method and num_speculative_tokens controls the number of proposed tokens. The token count is meaningful only in an enabled speculative-decoding configuration and is represented inside speculative_config.",
+      "applicability_when": [
+        "speculative decoding is enabled"
+      ],
+      "source_ids": [
+        "vllm-speculative-config-0.20.0"
+      ],
+      "source_locator": "SpeculativeConfig method and num_speculative_tokens fields",
+      "confidence": 1.0
+    },
+    {
+      "fact_id": "EXT014-kv-offload-size-activates-backend",
+      "parameters": [
+        "kv_offloading_size",
+        "kv_offloading_backend"
+      ],
+      "relation": "parent_gate",
+      "question_types": ["activation_gate"],
+      "statement": "KV-cache offloading is activated only when kv_offloading_size is set. A positive size controls CPU buffer capacity and kv_offloading_backend then selects native or LMCache materialization.",
+      "applicability_when": [
+        "kv_offloading_size is positive"
+      ],
+      "source_ids": [
+        "vllm-cache-config-0.20.0"
+      ],
+      "source_locator": "kv_offloading_size and kv_offloading_backend fields",
+      "confidence": 1.0
+    },
+    {
+      "fact_id": "EXT015-explicit-kv-bytes-overrides-gpu-utilization",
+      "parameters": [
+        "kv_cache_memory_bytes",
+        "gpu_memory_utilization"
+      ],
+      "relation": "override",
+      "question_types": ["override_or_conflict", "independent_coordinate"],
+      "statement": "When kv_cache_memory_bytes is non-null, vLLM uses the explicit per-GPU KV-cache byte budget and ignores gpu_memory_utilization for KV-cache sizing.",
+      "applicability_when": [
+        "kv_cache_memory_bytes is not null"
+      ],
+      "source_ids": [
+        "vllm-cache-config-0.20.0"
+      ],
+      "source_locator": "kv_cache_memory_bytes field",
+      "confidence": 1.0
+    },
+    {
+      "fact_id": "EXT016-generative-model-chunked-prefill-cannot-be-disabled-safely",
+      "parameters": [
+        "enable_chunked_prefill"
+      ],
+      "relation": "supported_domain",
+      "question_types": ["supported_domain", "normalization_or_fallback"],
+      "statement": "For a vLLM 0.20.0 generative model whose attention type is not encoder-decoder, is_chunked_prefill_supported resolves to true and EngineArgs enables chunked prefill by default. Explicitly disabling it is documented in the pinned implementation as not officially supported for such a generate runner and may crash the engine or produce incorrect outputs; false is therefore not a safe supported tuning value for that model class.",
+      "applicability_when": [
+        "vllm_version == 0.20.0",
+        "runner_type == generate",
+        "model attention type != encoder_decoder"
+      ],
+      "source_ids": [
+        "vllm-model-config-source-0.20.0",
+        "vllm-arg-utils-0.20.0"
+      ],
+      "source_locator": "ModelConfig.is_chunked_prefill_supported, lines 1702-1746; EngineArgs._set_default_chunked_prefill_and_prefix_caching_args, lines 2262-2284",
+      "confidence": 1.0
+    },
+    {
+      "fact_id": "EXT017-hybrid-kv-manager-has-no-distinct-qwen2-lmcache-path",
+      "parameters": [
+        "disable_hybrid_kv_cache_manager"
+      ],
+      "relation": "normalization_and_feature_gate",
+      "question_types": [
+        "activation_gate",
+        "normalization_or_fallback",
+        "supported_domain"
+      ],
+      "statement": "The vLLM 0.20.0 hybrid KV-cache manager distinguishes heterogeneous per-layer KV-cache specifications. For a model whose layers have one uniform full-attention specification, the group builder already takes the uniform path, so disabling the hybrid manager does not create a second layout. When kv_transfer_config is present, post-init disables HMA by default; explicitly enabling HMA is rejected if the connector lacks SupportsHMA. LMCacheConnectorV1 inherits KVConnectorBase_V1 but not SupportsHMA in the pinned source.",
+      "applicability_when": [
+        "vllm_version == 0.20.0",
+        "model has a uniform full-attention KV-cache specification, or the active connector lacks SupportsHMA"
+      ],
+      "source_ids": [
+        "vllm-global-config-source-0.20.0",
+        "vllm-kv-cache-utils-source-0.20.0",
+        "vllm-lmcache-connector-source-0.20.0",
+        "vllm-kv-connector-factory-source-0.20.0"
+      ],
+      "source_locator": "VllmConfig post-init HMA rules around lines 1254-1319; get_kv_cache_groups around lines 1619-1630; LMCacheConnectorV1 declaration; KVConnectorFactory.create_connector HMA guard",
+      "confidence": 1.0
+    },
+    {
+      "fact_id": "EXT018-load-config-does-not-change-computation-graph",
+      "parameters": [
+        "load_format"
+      ],
+      "relation": "loading_execution_scope",
+      "question_types": [
+        "performance_path",
+        "execution_scope",
+        "materialization"
+      ],
+      "statement": "In vLLM 0.20.0, LoadConfig is the configuration for loading model weights, and its compute_hash intentionally contains no factors because the config does not affect the model computation graph. load_format selects the weight loader or checkpoint representation during model loading.",
+      "applicability_when": [
+        "vllm_version == 0.20.0"
+      ],
+      "source_ids": [
+        "vllm-load-config-source-0.20.0"
+      ],
+      "source_locator": "LoadConfig declaration and compute_hash, lines 23-26 and 105-120",
+      "confidence": 1.0
+    }
+  ]
+}

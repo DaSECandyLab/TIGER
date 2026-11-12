@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "vllm_version": "0.20.0",
+  "snapshot_kind": "canonical_parameter_grouping_after_memory_normalization",
+  "scenario_id": "qwen2-7b_single-node_2x-rtx4090_cache-policy-search",
+  "scenario_revision": 5,
+  "screening_memory_revision": 8,
+  "workload_values_used": false,
+  "candidate_count": 30,
+  "group_count": 8,
+  "grouping_principles": [
+    "parameters use a similar optimization mechanism",
+    "parameters respond to similar workload signals",
+    "explicit parent-child and mutual-exclusion dependencies stay together",
+    "parameters are suitable for joint validation in one probe experiment"
+  ],
+  "memory_excluded_parameters": [
+    {
+      "name": "kv_cache_memory_bytes",
+      "rule_id": "R023-kv-cache-bytes-alternative-override",
+      "decision": "drop_fixed_or_derived",
+      "finding": "alternative_parameterization_excluded",
+      "reason": "kv_cache_memory_bytes explicitly overrides gpu_memory_utilization, so jointly sampling both would create an inactive dimension. The current SCOOT BO implements gpu_memory_utilization, whose fractional domain remains meaningful across the searched TP/DP, quantization, and KV-dtype branches; absolute per-GPU bytes would require branch-specific bounds.",
+      "evidence": [
+        "scenario:search_policy.kv_cache_sizing_parameterization",
+        "vllm-0.20.0/vllm/config/cache.py:158",
+        "scoot/flock/bo/arguments.py:16",
+        "scoot/flock/bo/search_space.py:471",
+        "scoot/flock/trial/vllm.py:166"
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "group_id": "model_representation",
+      "title": "Model Representation and Numeric Quality",
+      "parameters": [
+        "dtype",
+        "quantization",
+        "model_impl"
+      ],
+      "optimization_mechanism": "Affects model arithmetic precision, memory footprint, and trade-off between throughput and output quality through quantization and model implementation choice.",
+      "workload_signal_families": [
+        "request_throughput",
+        "TTFT",
+        "TPOT",
+        "GPU_utilization",
+        "KV_cache_capacity",
+        "mean_f1_score",
+        "max_relative_error"
+      ],
+      "internal_dependencies": [],
+      "joint_experiment_rationale": "Varying dtype, quantization, and model_impl together explores combined effects on memory, computation, and quality. A single trial can exercise a full model configuration template.",
+      "applicability": "core"
+    },
+    {
+      "group_id": "parallel_topology",
+      "title": "Parallel Topology and GPU Communication",
+      "parameters": [
+        "tensor_parallel_size",
+        "decode_context_parallel_size",
+        "data_parallel_size",
+        "data_parallel_backend",
+        "disable_nccl_for_dp_synchronization"
+      ],
+      "optimization_mechanism": "Controls how the model is partitioned across GPUs and the backend for data parallel synchronization, affecting inter-GPU communication, per-GPU memory usage, and batch distribution.",
+      "workload_signal_families": [
+        "request_rate",
+        "prompt_output_lengths",
+        "batch_size_distribution",
+        "inter_gpu_communication",
+        "GPU_utilization",
+        "TTFT",
+        "TPOT"
+      ],
+      "internal_dependencies": [
+        "decode_context_parallel_size active only when tensor_parallel_size == 2",
+        "data_parallel_backend active only when data_parallel_size == 2",
+        "disable_nccl_for_dp_synchronization active only when data_parallel_size == 2"
+      ],
+      "joint_experiment_rationale": "These parameters collectively define the parallel topology. Jointly varying tensor/data parallel sizes and their associated options allows the optimizer to find the best configuration that satisfies GPU count constraint and workload characteristics.",
+      "applicability": "core"
+    },
+    {
+      "group_id": "kv_cache_sizing",
+      "title": "KV Cache Sizing and Precision",
+      "parameters": [
+        "block_size",
+        "gpu_memory_utilization",
+        "kv_cache_dtype",
+        "max_model_len"
+      ],
+      "optimization_mechanism": "Controls KV cache memory budget, block granularity, and data type precision, directly influencing KV cache capacity and memory pressure.",
+      "workload_signal_families": [
+        "KV_cache_capacity",
+        "KV_cache_pressure",
+        "peak_memory_usage",
+        "prompt_lengths",
+        "output_lengths",
+        "TTFT",
+        "TPOT"
+      ],
+      "internal_dependencies": [],
+      "joint_experiment_rationale": "Tuning these parameters together explores trade-offs between memory consumption and performance, as max_model_len defines the maximum context, gpu_memory_utilization sets the budget, and block_size/kv_cache_dtype affect cache efficiency.",
+      "applicability": "core"
+    },
+    {
+      "group_id": "prefix_caching",
+      "title": "vLLM Automatic Prefix Caching",
+      "parameters": [
+        "enable_prefix_caching",
+        "prefix_caching_hash_algo"
+      ],
+      "optimization_mechanism": "Enables reuse of KV cache blocks for repeated prompt prefixes, reducing redundant computation. Hash algorithm affects cache lookup fidelity and overhead.",
+      "workload_signal_families": [
+        "KV_cache_reuse",
+        "prefix_sharing",
+        "TTFT",
+        "GPU_utilization",
+        "throughput"
+      ],
+      "internal_dependencies": [
+        "prefix_caching_hash_algo active only when enable_prefix_caching == true"
+      ],
+      "joint_experiment_rationale": "Enabling prefix caching and choosing the hash algorithm are naturally tested together; the hash choice only matters when caching is on, and a joint experiment can measure the impact on reuse and performance.",
+      "applicability": "core"
+    },
+    {
+      "group_id": "cacheblend",
+      "title": "CacheBlend (LMCache-based) Features",
+      "parameters": [
+        "cacheblend_mode",
+        "cacheblend_allow_prefix_caching",
+        "lmcache_chunk_size",
+        "cacheblend_blend_min_tokens",
+        "cacheblend_blend_check_layers",
+        "cacheblend_blend_recompute_ratios"
+      ],
+      "optimization_mechanism": "Enables and configures LMCache-based blending, which trades off between recomputation and reuse of cached KV states across requests, affecting latency, throughput, and output quality.",
+      "workload_signal_families": [
+        "KV_cache_pressure",
+        "KV_cache_reuse",
+        "prefix_sharing",
+        "TTFT",
+        "TPOT",
+        "throughput",
+        "mean_f1_score",
+        "max_relative_error"
+      ],
+      "internal_dependencies": [
+        "cacheblend_allow_prefix_caching, lmcache_chunk_size, cacheblend_blend_min_tokens, cacheblend_blend_check_layers, cacheblend_blend_recompute_ratios all require cacheblend_mode == on"
+      ],
+      "joint_experiment_rationale": "All CacheBlend parameters are gated by cacheblend_mode; jointly varying them in a single experiment ensures consistent evaluation of the CacheBlend feature branch, including coexistence with prefix caching.",
+      "applicability": "conditional"
+    },
+    {
+      "group_id": "speculative_decoding",
+      "title": "Speculative Decoding Configuration",
+      "parameters": [
+        "speculative_method",
+        "num_speculative_tokens"
+      ],
+      "optimization_mechanism": "Enables speculative decoding using n-gram prediction to propose multiple tokens per step, aiming to improve throughput at the cost of added verification work.",
+      "workload_signal_families": [
+        "request_throughput",
+        "TTFT",
+        "TPOT",
+        "GPU_utilization",
+        "output_quality"
+      ],
+      "internal_dependencies": [
+        "num_speculative_tokens active only when speculative_method == ngram"
+      ],
+      "joint_experiment_rationale": "The speculative method and the number of speculative tokens are inherently coupled; a joint experiment can explore the trade-off between speed and acceptance rate.",
+      "applicability": "conditional"
+    },
+    {
+      "group_id": "scheduler_tuning",
+      "title": "Scheduler and Batch Control",
+      "parameters": [
+        "max_num_batched_tokens",
+        "max_num_seqs",
+        "long_prefill_token_threshold",
+        "scheduler_reserve_full_isl",
+        "async_scheduling"
+      ],
+      "optimization_mechanism": "Controls request admission, batching limits, handling of long prefills, and asynchronous scheduling to balance GPU utilization and latency.",
+      "workload_signal_families": [
+        "request_rate",
+        "prompt_lengths",
+        "batch_size_distribution",
+        "GPU_utilization",
+        "TTFT",
+        "TPOT",
+        "ITL"
+      ],
+      "internal_dependencies": [],
+      "joint_experiment_rationale": "These parameters together shape the scheduling behavior; varying them in a joint experiment allows the optimizer to find the best combination of batching and admission strategies under the given workload.",
+      "applicability": "core"
+    },
+    {
+      "group_id": "execution_optimization",
+      "title": "Execution and Kernel Optimizations",
+      "parameters": [
+        "enforce_eager",
+        "disable_cascade_attn",
+        "enable_flashinfer_autotune"
+      ],
+      "optimization_mechanism": "Toggles CUDA graph usage, cascade attention kernel, and FlashInfer autotuning, influencing compute graph overhead and kernel performance.",
+      "workload_signal_families": [
+        "GPU_utilization",
+        "throughput",
+        "latency",
+        "numerical_stability"
+      ],
+      "internal_dependencies": [],
+      "joint_experiment_rationale": "Jointly testing these execution-related flags provides a comprehensive picture of kernel and graph optimization impacts on performance and stability.",
+      "applicability": "core"
+    }
+  ],
+  "cross_group_dependencies": [
+    {
+      "from_group": "cacheblend",
+      "to_group": "prefix_caching",
+      "reason": "cacheblend_allow_prefix_caching from CacheBlend group determines whether vLLM's enable_prefix_caching (from prefix_caching group) may be active when CacheBlend is on; the effective prefix caching is a logical AND of both gates."
+    }
+  ],
+  "grouping_notes": [
+    "CacheBlend and speculative decoding groups are conditional; all others are core.",
+    "Parallel topology group includes parameters that activate only under specific parallel sizes, but the group represents the overall topology search dimension.",
+    "Scheduler group assumes chunked_prefill is enabled (scenario fixed), so all parameters are always active.",
+    "No explicit cross-parameter dependencies exist between model representation and other groups.",
+    "disable_cascade_attn and enforce_eager have known interaction (cascade_attn requires CUDA graphs), but they are not parent-child, so placed in execution group together."
+  ]
+}

@@ -1,0 +1,842 @@
+{
+  "schema_version": 2,
+  "knowledge_base_id": "vllm-mechanism-evidence-v0-20-0-r5",
+  "vllm_version": "0.20.0",
+  "purpose": "Store source-grounded, atomic claims about inference mechanisms for workload-aware parameter-group screening.",
+  "provenance_policy": {
+    "source_of_truth": "Local structured claims with stable IDs and exact source locators.",
+    "retrieval_index": "A rebuildable local metadata + BM25 + multilingual-E5 + RRF index only returns candidate IDs; retrieved IDs are always resolved back to this file.",
+    "threshold_policy": "Numbers from papers are experimental regimes, not universal decision thresholds. Workload observations are compared with the cited evidence by the LLM.",
+    "decision_policy": "A screening conclusion must cite claim IDs, typed claim-observation relations, and exact scenario/workload paths. Missing discriminators remain uncertainty rather than being converted to zero.",
+    "direction_policy": "A source claim may support or oppose retention only through one of its declared observation_relations. A matched intervention is direct local evidence and does not need to be misrepresented as a paper claim."
+  },
+  "sources": [
+    {
+      "source_id": "cacheblend-paper-2024",
+      "title": "CacheBlend: Fast Large Language Model Serving for RAG with Cached Knowledge Fusion",
+      "source_kind": "primary_research_paper",
+      "authority": "primary",
+      "published": "2024-06-03",
+      "version_scope": "mechanism-level; not tied to one vLLM release",
+      "url": "https://arxiv.org/abs/2405.16444",
+      "pdf_url": "https://www.cs.princeton.edu/~ravian/COS597_F24/papers/cacheblend.pdf"
+    },
+    {
+      "source_id": "speculative-decoding-paper-2023",
+      "title": "Fast Inference from Transformers via Speculative Decoding",
+      "source_kind": "primary_research_paper",
+      "authority": "primary",
+      "published": "2023-07-23",
+      "version_scope": "generic speculative-decoding theory; implementation-independent",
+      "url": "https://proceedings.mlr.press/v202/leviathan23a.html",
+      "pdf_url": "https://proceedings.mlr.press/v202/leviathan23a/leviathan23a.pdf"
+    },
+    {
+      "source_id": "vllm-ngram-blog-2024",
+      "title": "How Speculative Decoding Boosts vLLM Performance by up to 2.8x",
+      "source_kind": "official_engineering_blog",
+      "authority": "official_implementation_guidance",
+      "published": "2024-10-17",
+      "version_scope": "vLLM implementation guidance; n-gram prompt lookup",
+      "url": "https://vllm-project.github.io/2024/10/17/spec-decode.html"
+    },
+    {
+      "source_id": "vllm-ngram-docs-0.20.0",
+      "title": "vLLM 0.20.0 N-Gram Speculation",
+      "source_kind": "official_versioned_documentation",
+      "authority": "official",
+      "published": "2026-02-18",
+      "version_scope": "vLLM 0.20.0",
+      "url": "https://docs.vllm.ai/en/v0.20.0/features/speculative_decoding/n_gram/"
+    },
+    {
+      "source_id": "vllm-apc-docs-0.20.0",
+      "title": "vLLM 0.20.0 Automatic Prefix Caching",
+      "source_kind": "official_versioned_documentation",
+      "authority": "official",
+      "published": "2025-10-17",
+      "version_scope": "vLLM 0.20.0",
+      "url": "https://docs.vllm.ai/en/v0.20.0/features/automatic_prefix_caching/"
+    },
+    {
+      "source_id": "vllm-apc-design-0.20.0",
+      "title": "vLLM 0.20.0 Prefix Caching Design",
+      "source_kind": "official_versioned_design_document",
+      "authority": "official",
+      "published": "2026-01-19",
+      "version_scope": "vLLM 0.20.0",
+      "url": "https://docs.vllm.ai/en/v0.20.0/design/prefix_caching/"
+    }
+  ],
+  "mechanisms": [
+    {
+      "mechanism_id": "cacheblend",
+      "group_id": "cacheblend",
+      "optional_mechanism": true,
+      "retrieval_terms": [
+        "CacheBlend",
+        "RAG",
+        "multiple reused text chunks",
+        "non-prefix KV reuse",
+        "cross-chunk attention",
+        "long prefill",
+        "LMCache",
+        "selective recomputation"
+      ],
+      "required_evidence_roles": [
+        "target_workload",
+        "mechanism",
+        "limitation",
+        "experimental_regime"
+      ],
+      "observations": [
+        {
+          "observation_id": "workload_identity",
+          "source_path": "workload_identity",
+          "observation_kind": "workload_signal",
+          "semantics": "Whether the workload is RAG-like and assembles multiple retrieved context chunks."
+        },
+        {
+          "observation_id": "rag_chunk_count",
+          "source_path": "merged_feature_groups.data_features.rag_retrieved_chunk_count_distribution",
+          "observation_kind": "workload_signal",
+          "semantics": "Number of independently reusable retrieved chunks in each prompt."
+        },
+        {
+          "observation_id": "prefill_length",
+          "source_path": "merged_feature_groups.data_features.data_prompt_len_distribution",
+          "observation_kind": "workload_signal",
+          "semantics": "Prompt/prefill token-length distribution; compare qualitatively with source experimental regimes."
+        },
+        {
+          "observation_id": "reusable_non_prefix_segment_length",
+          "source_path": "merged_feature_groups.data_features.shared_cacheblend_len_distribution",
+          "observation_kind": "workload_signal",
+          "semantics": "Length distribution of reusable material that ordinary prefix caching cannot fully cover."
+        },
+        {
+          "observation_id": "ordinary_prefix_reuse",
+          "source_path": "merged_feature_groups.data_features.prefix_reuse_ratio",
+          "observation_kind": "workload_signal",
+          "semantics": "How much reuse is already expressible as an exact common prefix."
+        },
+        {
+          "observation_id": "lmcache_hit_rate",
+          "source_path": "cacheblend_default_intervention.lmcache_cache_hit_rate",
+          "observation_kind": "matched_intervention",
+          "semantics": "Observed fraction of cache-eligible tokens served by LMCache in the matched intervention."
+        },
+        {
+          "observation_id": "matched_execution_status",
+          "source_path": "cacheblend_default_intervention.execution_status",
+          "observation_kind": "matched_intervention",
+          "semantics": "Whether the otherwise matched CacheBlend-default intervention completed or failed during execution. A runtime failure is direct feasibility evidence and must not be converted into zero-valued performance metrics."
+        },
+        {
+          "observation_id": "matched_throughput_effect",
+          "source_path": "cacheblend_default_intervention.comparisons.request_throughput",
+          "observation_kind": "matched_intervention",
+          "semantics": "Measured throughput change from the matched CacheBlend-default intervention."
+        },
+        {
+          "observation_id": "matched_ttft_effect",
+          "source_path": "cacheblend_default_intervention.comparisons.mean_ttft_ms",
+          "observation_kind": "matched_intervention",
+          "semantics": "Measured TTFT change from the matched CacheBlend-default intervention."
+        },
+        {
+          "observation_id": "matched_quality_effect",
+          "source_path": "cacheblend_default_intervention.comparisons.quality_mean_f1_score",
+          "observation_kind": "matched_intervention",
+          "semantics": "Measured quality change from the matched CacheBlend-default intervention."
+        }
+      ]
+    },
+    {
+      "mechanism_id": "ngram_speculative_decoding",
+      "group_id": "speculative_decoding",
+      "optional_mechanism": true,
+      "retrieval_terms": [
+        "speculative decoding",
+        "n-gram prompt lookup",
+        "acceptance rate alpha",
+        "draft cost ratio c",
+        "long generation",
+        "prompt answer overlap",
+        "parallel verification"
+      ],
+      "required_evidence_roles": [
+        "mechanism",
+        "benefit_condition",
+        "limitation",
+        "implementation_semantics"
+      ],
+      "observations": [
+        {
+          "observation_id": "output_length",
+          "source_path": "merged_feature_groups.query_features.output_len_distribution",
+          "observation_kind": "workload_signal",
+          "semantics": "Generated-token horizon available to amortize proposal and verification work."
+        },
+        {
+          "observation_id": "prompt_answer_overlap",
+          "source_path": "merged_feature_groups.query_features.prompt_answer_ngram_overlap",
+          "observation_kind": "workload_signal",
+          "semantics": "Measured overlap between prompt n-grams and generated answers, specific to n-gram prompt lookup."
+        },
+        {
+          "observation_id": "acceptance_rate",
+          "source_path": "speculative_default_intervention.acceptance_rate",
+          "observation_kind": "matched_intervention",
+          "semantics": "Fraction of proposed tokens accepted by the target model."
+        },
+        {
+          "observation_id": "draft_target_cost_ratio",
+          "source_path": "speculative_default_intervention.draft_target_cost_ratio",
+          "observation_kind": "matched_intervention",
+          "semantics": "Proposal cost divided by one target-model step; n-gram lookup has a different cost profile from a draft model but still incurs proposal and verification overhead."
+        },
+        {
+          "observation_id": "matched_latency_effect",
+          "source_path": "speculative_default_intervention.comparisons.mean_e2e_latency_ms",
+          "observation_kind": "matched_intervention",
+          "semantics": "Measured end-to-end latency change from a matched n-gram speculative intervention."
+        }
+      ]
+    },
+    {
+      "mechanism_id": "vllm_automatic_prefix_caching",
+      "group_id": "prefix_caching",
+      "optional_mechanism": true,
+      "retrieval_terms": [
+        "automatic prefix caching",
+        "exact shared prefix",
+        "full KV blocks",
+        "long document query",
+        "multi-round conversation",
+        "prefill only"
+      ],
+      "required_evidence_roles": [
+        "mechanism",
+        "target_workload",
+        "limitation",
+        "implementation_semantics"
+      ],
+      "observations": [
+        {
+          "observation_id": "prefix_reuse",
+          "source_path": "merged_feature_groups.data_features.prefix_reuse_ratio",
+          "observation_kind": "workload_signal",
+          "semantics": "Fraction of prompt tokens estimated to belong to reusable exact prefixes."
+        },
+        {
+          "observation_id": "shared_prefix_length",
+          "source_path": "merged_feature_groups.data_features.shared_prefix_len_distribution",
+          "observation_kind": "workload_signal",
+          "semantics": "Length of exact common prefixes; vLLM only caches completed blocks."
+        },
+        {
+          "observation_id": "template_repetition",
+          "source_path": "merged_feature_groups.query_features.template_reuse_count",
+          "observation_kind": "workload_signal",
+          "semantics": "How often prompt templates recur across requests."
+        },
+        {
+          "observation_id": "runtime_hit_rate",
+          "source_path": "merged_feature_groups.runtime_features.prefix_cache_hit_rate.prefix_cache_hit_rate",
+          "observation_kind": "matched_intervention",
+          "semantics": "Direct runtime hit rate when APC is enabled; absence means unmeasured, not zero."
+        },
+        {
+          "observation_id": "prefill_decode_balance",
+          "source_path": "merged_feature_groups.runtime_features.ttft_tpot_distribution",
+          "observation_kind": "workload_signal",
+          "semantics": "Measured TTFT and end-to-end latency used together to determine whether prefill or answer generation dominates; output length alone does not prove decode dominance."
+        }
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "CB-PAPER-C01",
+      "mechanism_id": "cacheblend",
+      "group_ids": [
+        "cacheblend"
+      ],
+      "evidence_role": "target_workload",
+      "statement": "CacheBlend is designed for LLM inputs assembled from multiple reusable text chunks, especially RAG inputs where reused chunks are not necessarily the prompt prefix.",
+      "source_id": "cacheblend-paper-2024",
+      "source_locator": "Abstract; Section 1, pages 1-2",
+      "strength": "direct_author_claim",
+      "observation_relations": [
+        {
+          "observation_id": "workload_identity",
+          "allowed_uses": [
+            "support"
+          ],
+          "state_options": {
+            "explicit_multi_chunk_rag": "support",
+            "rag_pattern_not_established": "uncertainty"
+          },
+          "source_condition": "The workload is explicitly identified as RAG with multiple independently reusable retrieved chunks.",
+          "prohibited_inference": "A generic workload-driver label by itself does not prove that the workload is non-RAG."
+        },
+        {
+          "observation_id": "rag_chunk_count",
+          "allowed_uses": [
+            "support",
+            "counter"
+          ],
+          "state_options": {
+            "multiple_reusable_chunks": "support",
+            "explicitly_no_multiple_chunks": "counter",
+            "undetermined": "uncertainty"
+          },
+          "support_condition": "Multiple retrieved chunks are present and independently reusable.",
+          "counter_condition": "The workload explicitly has no multiple retrieved chunks."
+        }
+      ],
+      "tags": [
+        "RAG",
+        "multi-chunk",
+        "non-prefix-reuse"
+      ]
+    },
+    {
+      "claim_id": "CB-PAPER-C02",
+      "mechanism_id": "cacheblend",
+      "group_ids": [
+        "cacheblend"
+      ],
+      "evidence_role": "benefit_condition",
+      "statement": "The avoided work is prefill over reused context; the paper motivates the mechanism with long inputs whose prefill cost grows strongly with input length.",
+      "source_id": "cacheblend-paper-2024",
+      "source_locator": "Section 1, page 1",
+      "strength": "direct_author_claim",
+      "observation_relations": [
+        {
+          "observation_id": "prefill_length",
+          "allowed_uses": [
+            "support",
+            "counter"
+          ],
+          "state_options": {
+            "material_prefill_work": "support",
+            "non_material_prefill_work": "counter",
+            "undetermined": "uncertainty"
+          },
+          "support_condition": "Prefill is long enough to be a material part of inference cost.",
+          "counter_condition": "Prefill is demonstrably too small to offer material work avoidance.",
+          "threshold_scope": "qualitative_source_condition_without_a_universal_numeric_cutoff"
+        }
+      ],
+      "tags": [
+        "long-input",
+        "prefill",
+        "TTFT"
+      ]
+    },
+    {
+      "claim_id": "CB-PAPER-C03",
+      "mechanism_id": "cacheblend",
+      "group_ids": [
+        "cacheblend"
+      ],
+      "evidence_role": "limitation",
+      "statement": "Ordinary prefix caching can reuse only the first text chunk in a multi-chunk input; as the number of reused chunks grows, its saving becomes marginal for the remaining non-prefix chunks.",
+      "source_id": "cacheblend-paper-2024",
+      "source_locator": "Section 3.2, page 3, lines surrounding Figure 2",
+      "strength": "direct_author_claim",
+      "observation_relations": [
+        {
+          "observation_id": "reusable_non_prefix_segment_length",
+          "allowed_uses": [
+            "support"
+          ],
+          "state_options": {
+            "meaningful_non_prefix_reuse": "support",
+            "non_prefix_reuse_not_established": "uncertainty"
+          },
+          "source_condition": "Reusable material exists outside the exact prefix covered by ordinary prefix caching."
+        },
+        {
+          "observation_id": "ordinary_prefix_reuse",
+          "allowed_uses": [
+            "support"
+          ],
+          "state_options": {
+            "prefix_cache_leaves_non_prefix_reuse": "support",
+            "non_prefix_gap_not_established": "uncertainty"
+          },
+          "source_condition": "Ordinary prefix reuse leaves meaningful reusable non-prefix chunks uncovered.",
+          "prohibited_inference": "A prefix-reuse ratio alone cannot establish the amount of non-prefix reusable material."
+        }
+      ],
+      "tags": [
+        "prefix-caching",
+        "non-prefix-reuse",
+        "multi-chunk"
+      ]
+    },
+    {
+      "claim_id": "CB-PAPER-C04",
+      "mechanism_id": "cacheblend",
+      "group_ids": [
+        "cacheblend"
+      ],
+      "evidence_role": "mechanism",
+      "statement": "CacheBlend combines independently precomputed KV caches by selectively recomputing a subset of token KV values to recover cross-chunk attention, while cache retrieval can be pipelined with recomputation.",
+      "source_id": "cacheblend-paper-2024",
+      "source_locator": "Abstract; Sections 4 and 5",
+      "strength": "direct_author_claim",
+      "tags": [
+        "selective-recompute",
+        "cross-attention",
+        "cache-loading"
+      ]
+    },
+    {
+      "claim_id": "CB-PAPER-C05",
+      "mechanism_id": "cacheblend",
+      "group_ids": [
+        "cacheblend"
+      ],
+      "evidence_role": "quality_tradeoff",
+      "statement": "The paper empirically reports that recomputing roughly 10-20% of tokens is often enough to reduce attention deviation and preserve generation quality; this range is an experimental observation, not a universal safe domain.",
+      "source_id": "cacheblend-paper-2024",
+      "source_locator": "Section 4.3, page 5; Section 7.3, Figure 16",
+      "strength": "paper_empirical_result",
+      "tags": [
+        "recompute-ratio",
+        "quality",
+        "attention-deviation"
+      ]
+    },
+    {
+      "claim_id": "CB-PAPER-C06",
+      "mechanism_id": "cacheblend",
+      "group_ids": [
+        "cacheblend"
+      ],
+      "evidence_role": "experimental_regime",
+      "statement": "The main evaluation used six retrieved chunks of 512 tokens per chunk; these values describe the tested regime and must not be treated as a universal eligibility threshold.",
+      "source_id": "cacheblend-paper-2024",
+      "source_locator": "Section 7.2, page 10, Figure 12 discussion",
+      "strength": "paper_experimental_setup",
+      "decision_use": "context_only",
+      "tags": [
+        "6-chunks",
+        "512-tokens-per-chunk",
+        "evaluation-scope"
+      ]
+    },
+    {
+      "claim_id": "CB-PAPER-C07",
+      "mechanism_id": "cacheblend",
+      "group_ids": [
+        "cacheblend"
+      ],
+      "evidence_role": "experimental_regime",
+      "statement": "The sensitivity study varied chunk counts over 3, 6, 9, and 12 and chunk lengths over about 300, 600, and 900 tokens; it supports robustness within that measured range only.",
+      "source_id": "cacheblend-paper-2024",
+      "source_locator": "Section 7.3, page 11, Figure 15",
+      "strength": "paper_experimental_setup",
+      "decision_use": "context_only",
+      "tags": [
+        "chunk-count",
+        "chunk-length",
+        "sensitivity-analysis"
+      ]
+    },
+    {
+      "claim_id": "CB-PAPER-C08",
+      "mechanism_id": "cacheblend",
+      "group_ids": [
+        "cacheblend"
+      ],
+      "evidence_role": "reported_result",
+      "statement": "Across the paper's evaluated models and datasets, CacheBlend reduced TTFT by 2.2-3.3x and increased throughput by 2.8-5x against the stated baselines; these are scoped results, not guaranteed gains for other workloads or implementations.",
+      "source_id": "cacheblend-paper-2024",
+      "source_locator": "Abstract; Sections 7.2-7.3, Figures 12 and 14",
+      "strength": "paper_empirical_result",
+      "decision_use": "context_only",
+      "tags": [
+        "TTFT",
+        "throughput",
+        "scoped-result"
+      ]
+    },
+    {
+      "claim_id": "SD-PAPER-C01",
+      "mechanism_id": "ngram_speculative_decoding",
+      "group_ids": [
+        "speculative_decoding"
+      ],
+      "evidence_role": "mechanism",
+      "statement": "Autoregressive decoding normally requires serial target-model calls; speculative decoding proposes multiple future tokens and verifies them in parallel without changing the target distribution.",
+      "source_id": "speculative-decoding-paper-2023",
+      "source_locator": "Abstract; Section 2",
+      "strength": "direct_author_claim",
+      "tags": [
+        "serial-decoding",
+        "parallel-verification",
+        "lossless-sampling"
+      ]
+    },
+    {
+      "claim_id": "SD-PAPER-C02",
+      "mechanism_id": "ngram_speculative_decoding",
+      "group_ids": [
+        "speculative_decoding"
+      ],
+      "evidence_role": "benefit_condition",
+      "statement": "The expected tokens produced per speculative iteration depends on proposal acceptance rate alpha and speculation length gamma; higher acceptance allows more target decode steps to be skipped.",
+      "source_id": "speculative-decoding-paper-2023",
+      "source_locator": "Section 3.1, Definition 3.1 and Equation 1",
+      "strength": "analytical_result",
+      "observation_relations": [
+        {
+          "observation_id": "acceptance_rate",
+          "allowed_uses": [
+            "support",
+            "counter"
+          ],
+          "state_options": {
+            "acceptance_supports_skipped_steps": "support",
+            "acceptance_too_low": "counter",
+            "undetermined": "uncertainty"
+          },
+          "support_condition": "Measured acceptance permits multiple proposed tokens to be accepted often enough to skip target steps.",
+          "counter_condition": "Measured acceptance is too low to skip enough target steps."
+        }
+      ],
+      "tags": [
+        "acceptance-rate",
+        "alpha",
+        "gamma"
+      ]
+    },
+    {
+      "claim_id": "SD-PAPER-C03",
+      "mechanism_id": "ngram_speculative_decoding",
+      "group_ids": [
+        "speculative_decoding"
+      ],
+      "evidence_role": "benefit_condition",
+      "statement": "Wall-time benefit depends jointly on acceptance alpha and proposal-to-target cost ratio c; the paper proves that if alpha is greater than c, some speculation length gamma yields an improvement under its assumptions.",
+      "source_id": "speculative-decoding-paper-2023",
+      "source_locator": "Section 3.3, Definition 3.7, Theorem 3.8 and Corollary 3.9",
+      "strength": "analytical_result",
+      "observation_relations": [
+        {
+          "observation_id": "acceptance_rate",
+          "allowed_uses": [
+            "support",
+            "counter"
+          ],
+          "state_options": {
+            "alpha_greater_than_cost_ratio": "support",
+            "sufficient_condition_not_met": "counter",
+            "undetermined": "uncertainty"
+          },
+          "requires_observation_ids": [
+            "draft_target_cost_ratio"
+          ],
+          "support_condition": "Measured acceptance alpha is greater than measured proposal-to-target cost ratio c under the paper assumptions.",
+          "counter_condition": "The joint measured alpha and c relation does not satisfy the paper's sufficient benefit condition."
+        },
+        {
+          "observation_id": "draft_target_cost_ratio",
+          "allowed_uses": [
+            "support",
+            "counter"
+          ],
+          "state_options": {
+            "alpha_greater_than_cost_ratio": "support",
+            "sufficient_condition_not_met": "counter",
+            "undetermined": "uncertainty"
+          },
+          "requires_observation_ids": [
+            "acceptance_rate"
+          ],
+          "support_condition": "Measured acceptance alpha is greater than measured proposal-to-target cost ratio c under the paper assumptions.",
+          "counter_condition": "The joint measured alpha and c relation does not satisfy the paper's sufficient benefit condition."
+        }
+      ],
+      "tags": [
+        "alpha-greater-than-c",
+        "cost-ratio",
+        "walltime"
+      ]
+    },
+    {
+      "claim_id": "SD-PAPER-C04",
+      "mechanism_id": "ngram_speculative_decoding",
+      "group_ids": [
+        "speculative_decoding"
+      ],
+      "evidence_role": "limitation",
+      "statement": "The wall-time analysis assumes enough compute capacity to evaluate gamma-plus-one target positions concurrently without increasing wall time; resource contention can invalidate the idealized speedup.",
+      "source_id": "speculative-decoding-paper-2023",
+      "source_locator": "Section 3.3, page 4",
+      "strength": "explicit_assumption",
+      "tags": [
+        "parallel-capacity",
+        "resource-contention",
+        "assumption"
+      ]
+    },
+    {
+      "claim_id": "SD-PAPER-C05",
+      "mechanism_id": "ngram_speculative_decoding",
+      "group_ids": [
+        "speculative_decoding"
+      ],
+      "evidence_role": "limitation",
+      "statement": "The analytical speedup assumes generations are long enough; because the target model must run at least once, achievable speedup is capped by the number of generated tokens.",
+      "source_id": "speculative-decoding-paper-2023",
+      "source_locator": "Section 3.3, note after Theorem 3.8",
+      "strength": "explicit_assumption",
+      "observation_relations": [
+        {
+          "observation_id": "output_length",
+          "allowed_uses": [
+            "support",
+            "counter"
+          ],
+          "state_options": {
+            "long_enough_generation": "support",
+            "clearly_short_generation": "counter",
+            "undetermined": "uncertainty"
+          },
+          "support_condition": "Generations are long enough to amortize speculative iterations.",
+          "counter_condition": "Generations are clearly short, so the at-least-one target call sharply caps attainable speedup.",
+          "threshold_scope": "qualitative_source_condition_without_a_universal_numeric_cutoff"
+        }
+      ],
+      "tags": [
+        "generation-length",
+        "amortization",
+        "speedup-cap"
+      ]
+    },
+    {
+      "claim_id": "NGRAM-VLLM-C01",
+      "mechanism_id": "ngram_speculative_decoding",
+      "group_ids": [
+        "speculative_decoding"
+      ],
+      "evidence_role": "implementation_semantics",
+      "statement": "vLLM 0.20.0 n-gram speculation generates proposals by matching n-grams already present in the prompt rather than by running a separate draft language model.",
+      "source_id": "vllm-ngram-docs-0.20.0",
+      "source_locator": "N-Gram Speculation, example configuration",
+      "strength": "official_versioned_documentation",
+      "tags": [
+        "vllm-0.20.0",
+        "ngram",
+        "prompt-lookup"
+      ]
+    },
+    {
+      "claim_id": "NGRAM-VLLM-C02",
+      "mechanism_id": "ngram_speculative_decoding",
+      "group_ids": [
+        "speculative_decoding"
+      ],
+      "evidence_role": "target_workload",
+      "statement": "vLLM's engineering guidance identifies summarization and question answering with substantial prompt-answer overlap as suitable n-gram prompt-lookup workloads, especially when answers repeat prompt passages.",
+      "source_id": "vllm-ngram-blog-2024",
+      "source_locator": "Prompt lookup decoding section",
+      "strength": "official_implementation_guidance",
+      "observation_relations": [
+        {
+          "observation_id": "prompt_answer_overlap",
+          "allowed_uses": [
+            "support",
+            "counter"
+          ],
+          "state_options": {
+            "substantial_prompt_answer_overlap": "support",
+            "absent_or_low_prompt_answer_overlap": "counter",
+            "undetermined": "uncertainty"
+          },
+          "support_condition": "Measured answers substantially repeat prompt passages or n-grams.",
+          "counter_condition": "Measured prompt-answer n-gram overlap is absent or too low for prompt lookup proposals.",
+          "prohibited_inference": "Output length or workload name cannot substitute for measured prompt-answer overlap."
+        }
+      ],
+      "tags": [
+        "summarization",
+        "question-answering",
+        "prompt-answer-overlap"
+      ]
+    },
+    {
+      "claim_id": "APC-VLLM-C01",
+      "mechanism_id": "vllm_automatic_prefix_caching",
+      "group_ids": [
+        "prefix_caching"
+      ],
+      "evidence_role": "mechanism",
+      "statement": "Automatic Prefix Caching lets a new request skip recomputation only for prompt KV state that exactly shares a prefix with an existing cached query.",
+      "source_id": "vllm-apc-docs-0.20.0",
+      "source_locator": "Introduction",
+      "strength": "official_versioned_documentation",
+      "observation_relations": [
+        {
+          "observation_id": "prefix_reuse",
+          "allowed_uses": [
+            "support",
+            "counter"
+          ],
+          "state_options": {
+            "exact_prefix_reuse_present": "support",
+            "explicitly_no_exact_prefix_reuse": "counter",
+            "undetermined": "uncertainty"
+          },
+          "support_condition": "Exact shared prefixes are observed across requests.",
+          "counter_condition": "The workload explicitly has no exact shared prefix reuse."
+        },
+        {
+          "observation_id": "shared_prefix_length",
+          "allowed_uses": [
+            "support"
+          ],
+          "state_options": {
+            "completed_blocks_reusable": "support",
+            "block_reusability_not_established": "uncertainty"
+          },
+          "source_condition": "Observed exact shared prefixes contain reusable completed KV blocks."
+        }
+      ],
+      "tags": [
+        "exact-prefix",
+        "prefill-reuse",
+        "vllm-0.20.0"
+      ]
+    },
+    {
+      "claim_id": "APC-VLLM-C02",
+      "mechanism_id": "vllm_automatic_prefix_caching",
+      "group_ids": [
+        "prefix_caching"
+      ],
+      "evidence_role": "target_workload",
+      "statement": "The vLLM 0.20.0 documentation gives repeated queries over the same long document and multi-round conversations with reused history as representative high-benefit APC workloads.",
+      "source_id": "vllm-apc-docs-0.20.0",
+      "source_locator": "Example workloads",
+      "strength": "official_versioned_documentation",
+      "observation_relations": [
+        {
+          "observation_id": "template_repetition",
+          "allowed_uses": [
+            "support"
+          ],
+          "state_options": {
+            "repeated_prefix_bearing_requests": "support",
+            "exact_prefix_repetition_not_established": "uncertainty"
+          },
+          "source_condition": "Repeated requests reuse the same prefix-bearing document or conversation history.",
+          "prohibited_inference": "Template repetition without exact prefix reuse is not sufficient by itself."
+        },
+        {
+          "observation_id": "prefix_reuse",
+          "allowed_uses": [
+            "support"
+          ],
+          "state_options": {
+            "repeated_exact_prefix": "support",
+            "undetermined": "uncertainty"
+          },
+          "source_condition": "Repeated long-document or conversation requests share an exact prefix."
+        }
+      ],
+      "tags": [
+        "long-document",
+        "multi-round-chat",
+        "repeated-prefix"
+      ]
+    },
+    {
+      "claim_id": "APC-VLLM-C03",
+      "mechanism_id": "vllm_automatic_prefix_caching",
+      "group_ids": [
+        "prefix_caching"
+      ],
+      "evidence_role": "limitation",
+      "statement": "APC reduces prefill work, not decode work; it brings no benefit when requests share no prefix and little benefit when answer generation dominates total inference time.",
+      "source_id": "vllm-apc-docs-0.20.0",
+      "source_locator": "Limits",
+      "strength": "official_versioned_documentation",
+      "observation_relations": [
+        {
+          "observation_id": "prefix_reuse",
+          "allowed_uses": [
+            "counter"
+          ],
+          "state_options": {
+            "explicitly_no_exact_prefix_reuse": "counter",
+            "prefix_reuse_present_or_unknown": "uncertainty"
+          },
+          "counter_condition": "The workload explicitly has no shared exact prefix."
+        },
+        {
+          "observation_id": "prefill_decode_balance",
+          "allowed_uses": [
+            "support",
+            "counter"
+          ],
+          "state_options": {
+            "prefill_dominated": "support",
+            "decode_dominated": "counter",
+            "undetermined": "uncertainty"
+          },
+          "support_condition": "Measured latency is prefill-dominated, so APC targets a material part of inference time.",
+          "counter_condition": "Measured answer generation dominates total inference time.",
+          "prohibited_inference": "A short output is not a limitation and output length alone does not prove decode dominance."
+        }
+      ],
+      "tags": [
+        "prefill-only",
+        "decode-dominated",
+        "no-shared-prefix"
+      ]
+    },
+    {
+      "claim_id": "APC-VLLM-C04",
+      "mechanism_id": "vllm_automatic_prefix_caching",
+      "group_ids": [
+        "prefix_caching"
+      ],
+      "evidence_role": "implementation_semantics",
+      "statement": "vLLM hashes prompt tokens to look up computed KV blocks and caches a block only after it is full; therefore a partial shared tail shorter than a complete block is not independently reusable.",
+      "source_id": "vllm-apc-design-0.20.0",
+      "source_locator": "Operations: Block Allocation; Example, Time 3",
+      "strength": "official_versioned_design_document",
+      "observation_relations": [
+        {
+          "observation_id": "shared_prefix_length",
+          "allowed_uses": [
+            "support",
+            "counter"
+          ],
+          "state_options": {
+            "one_or_more_complete_blocks": "support",
+            "partial_tail_only": "counter",
+            "undetermined": "uncertainty"
+          },
+          "support_condition": "The shared exact prefix contains one or more complete cache blocks.",
+          "counter_condition": "The reusable portion is only a partial tail shorter than a complete cache block.",
+          "requires_scenario_fields": [
+            "block_size"
+          ]
+        }
+      ],
+      "tags": [
+        "full-block",
+        "block-hash",
+        "partial-tail"
+      ]
+    }
+  ]
+}

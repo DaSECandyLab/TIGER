@@ -1,0 +1,128 @@
+{
+  "schema_version": "tiger.movies-example.v1",
+  "purpose": "Small real-data example for loading, query execution and evaluation; not the paper workload",
+  "synthetic": false,
+  "scale_factor": 40,
+  "movie_count": 4,
+  "review_count": 40,
+  "selection": {
+    "source": "SemBench/files/movie/data/sf_2000",
+    "method": "Take the lowest numeric review IDs per declared movie/sentiment stratum; deduplicate reviewId globally and movies by id; Quantumania retains numeric /5 scores for Q9",
+    "source_sha256": {
+      "Movies.csv": "aac26cb7cdbc771a8a42bf6a9dde869c25ebdbce7dbb97c2be4818bcdf31bea5",
+      "Reviews.csv": "df231cfb189c9e169aa6afe415e4fa24533b04499179bbd61416c4c6af28ca21"
+    },
+    "strata": {
+      "taken_3": {
+        "POSITIVE": 6,
+        "NEGATIVE": 6
+      },
+      "ant_man_and_the_wasp_quantumania": {
+        "POSITIVE": 6,
+        "NEGATIVE": 6
+      },
+      "joker_2019": {
+        "POSITIVE": 4,
+        "NEGATIVE": 4
+      },
+      "parasite_2019": {
+        "POSITIVE": 8
+      }
+    },
+    "row_values_modified": false,
+    "review_ids": [
+      "2240508",
+      "2241270",
+      "2241667",
+      "2241669",
+      "2241817",
+      "2241826",
+      "2240884",
+      "2241147",
+      "2241158",
+      "2241160",
+      "2241163",
+      "2241263",
+      "102779482",
+      "102779486",
+      "102779490",
+      "102779496",
+      "102779507",
+      "102779519",
+      "102779501",
+      "102779531",
+      "102779544",
+      "102779555",
+      "102779585",
+      "102779596",
+      "2620988",
+      "2620989",
+      "2620992",
+      "2620999",
+      "2624212",
+      "2624352",
+      "2631527",
+      "2631624",
+      "2589048",
+      "2589177",
+      "2593585",
+      "2600326",
+      "2601409",
+      "2602324",
+      "2616540",
+      "2623087"
+    ]
+  },
+  "sentiment_counts": {
+    "POSITIVE": 24,
+    "NEGATIVE": 16
+  },
+  "queries": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "files_sha256": {
+    "data/sf_40/Movies.csv": "b908f30c4b34c551335b64c163c20662fd845b9c30f68709316526e8ae14e060",
+    "data/sf_40/Reviews.csv": "b3564a2e123514d0cf53de8d4a634a3f9a9e666dcd645181073671605e9f3cee",
+    "query/flockmtl/Q1.sql": "b41691f3a413130cc2565bb8d803fa9e3c2a9261532f4f98510a96ca47607954",
+    "query/flockmtl/Q10.sql": "e57e664496318c767a29da6cac59171e8d36be148645aff26b84370c5ff84ac2",
+    "query/flockmtl/Q2.sql": "00cfa718e17ab24b5d36a2e32403c20b1538b94ac8137cdf016e7a137eb51ac7",
+    "query/flockmtl/Q3.sql": "9a03d93557d7d02d4ca129b8a997770a94166030635cb0c2245b28c4aada7958",
+    "query/flockmtl/Q4.sql": "842e7f8ff43f6b35c3f3cb546256a19ccc6baf57f6a231d800e89dfb9c6cb757",
+    "query/flockmtl/Q5.sql": "be8b65d32693f809561e5c372bb2f358757dc5294327a744535468520913f6b4",
+    "query/flockmtl/Q6.sql": "a7f925093f5e77dc229373cc460e1c2850097c449cebd1edcc730ce743ed77db",
+    "query/flockmtl/Q7.sql": "d11a00f876dd892462d40341c8ec25cf256353f38661b168758f8b0909370102",
+    "query/flockmtl/Q8.sql": "9214a55c603b82b30bd8030f7c0a01aea4cc3d8554febb6554e7f13d7ed48b88",
+    "query/flockmtl/Q9.sql": "6b45d83238b7faba478a3e8172313cf62071e5152dd986f3ea5cd453a39a11ab",
+    "query/gold_sql/Q1.sql": "847621f0ed626e03c56dee06b73b7bff5cd587fe2f8b38d1e41e2049e9f4de66",
+    "query/gold_sql/Q10.sql": "e19e3a84eaf3aed38fe382860332fbdee0d4fef16910bc5ed279715853f7cdca",
+    "query/gold_sql/Q2.sql": "5ab598444ef58794879227734873d370636dbc89ec9b29d4529d33dd4d5f2965",
+    "query/gold_sql/Q3.sql": "753ec183e733fa1b7e11dfee9309bc82297ebc0a02ff15347ef898027f1665b5",
+    "query/gold_sql/Q4.sql": "8a3fa2f7153fa8c17dc0ae5fc5820f3c98345cd93dfdfd30197f084a0d554e9a",
+    "query/gold_sql/Q5.sql": "0973c0977d6ff0ace0749eef2d0e154860bd9b7356fd3aa4ba1400222d8dc407",
+    "query/gold_sql/Q6.sql": "e1ae58f8b13a21c8da613448586138a48cbe42cb3c8c7ee5a05bd79544280a04",
+    "query/gold_sql/Q7.sql": "397ca1132574879cd4b22b435abc4f11ae0b06a4cb01a2ea7951433ef499c620",
+    "query/gold_sql/Q8.sql": "1c9c2b9f1cfba93476261b816f042c8d2905f59488f268615d719351f750e3c5",
+    "query/gold_sql/Q9.sql": "6c45ec0e54b3ad98f88b839b3eceda759de5de34019bd2ede48407e349b9414c"
+  },
+  "expected_gold_row_counts": {
+    "Q1": 24,
+    "Q2": 6,
+    "Q3": 1,
+    "Q4": 1,
+    "Q5": 60,
+    "Q6": 72,
+    "Q7": 72,
+    "Q8": 2,
+    "Q9": 12,
+    "Q10": 4
+  }
+}

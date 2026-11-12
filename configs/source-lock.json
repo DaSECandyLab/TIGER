@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "name": "vllm",
+      "path": "vllm-0.20.0",
+      "url": "https://github.com/vllm-project/vllm.git",
+      "commit": "88d34c6409e9fb3c7b8ca0c04756f061d2099eb1",
+      "optional": false,
+      "patch": "patches/vllm.patch",
+      "patch_sha256": "06354ab14e8be69b727358837bcd21727433fa1ba5fb4319e775355372e85961"
+    },
+    {
+      "name": "duckdb",
+      "path": "flock/duckdb",
+      "url": "https://github.com/duckdb/duckdb.git",
+      "commit": "7dbb2e646fea939a89f10a55aa98c474cbb0c098",
+      "optional": false
+    },
+    {
+      "name": "extension-ci-tools",
+      "path": "flock/extension-ci-tools",
+      "url": "https://github.com/duckdb/extension-ci-tools.git",
+      "commit": "ef15a2a7453db5b4f85b7c668a545ae2f1193ff6",
+      "optional": false
+    },
+    {
+      "name": "vcpkg",
+      "path": "flock/vcpkg",
+      "url": "https://github.com/microsoft/vcpkg.git",
+      "commit": "6fad4fa784ab2506e35144a7c3d64738976445ea",
+      "optional": false
+    }
+  ],
+  "lmcache": {
+    "version": "0.4.5",
+    "source_url": "https://files.pythonhosted.org/packages/30/07/b5a8cfe150c2fd47f74af151db4cc34a1864637cb6342cb7bef313e42466/lmcache-0.4.5.tar.gz",
+    "source_sha256": "9d59625a1a4413f4786b26027589ea3063221223c6ad8d8c8dcdbd6175c3f20a",
+    "patch": "patches/lmcache-0.4.5.patch",
+    "patch_sha256": "fc75595c151d74c273c16b9e0ec0885cd4cdefd0b9a2ebe08b1d4084498643e8",
+    "patched_files_sha256": {
+      "lmcache/integration/vllm/utils.py": "1e44f75c54f02352c64d7b07846697675dbf51adb5b66eaa5a0a52d7b6841945",
+      "lmcache/v1/cache_engine.py": "3d895ecd9ce664e63f39c90c3f9f7723ed693660d526b8393a0f58c55ced9735",
+      "lmcache/v1/compute/positional_encoding.py": "0c3653e809a280b650c99cb32036b3c3134e1486012ceb3377831c10611e87d0",
+      "lmcache/v1/token_database.py": "1c466fb0f4fbbb08a8610adf51c43a7f2429f62f8cd47d2d7c3a5e340d565367"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "workload": "movies",
+  "model": "Qwen2-7B-Instruct",
+  "baseline_config": "/path/to/baseline_config.json",
+  "baseline_trial_result": "/path/to/baseline_result.json",
+  "screening_result": "/path/to/screening_result.json",
+  "output_dir": "my_storage/my_new_movies_run/candidate_optimizer",
+  "rounds": 50,
+  "quality_alpha": 0.05,
+  "quality_metric": "sembench_summary.quality_gate_passed",
+  "trial_argv": [],
+  "optimizer_options": {
+    "repair_bo_enabled": true,
+    "repair_reflect_enabled": true
+  }
+}
